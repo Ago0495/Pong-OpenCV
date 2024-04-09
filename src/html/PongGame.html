@@ -954,6 +954,12 @@
 					{
 						this.velocity[1] = -1*this.velocity[1];
 					}
+
+                    if (other.name == "wall")
+                    {
+                        m.CreateObject(1, Ball, [0,0,0], [0,0,0])
+                        m.destroyList.push(this.id)
+                    }
 				}
 
 				OnTriggerEnter(other)
@@ -994,7 +1000,7 @@
 					super();
 					this.name = "Wall";
 					this.collisionRadius = 1;
-					this.scale = [10,10,1];
+					this.scale = [1,1,1];
 					this.buffer=gl.createBuffer();
 					// gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
 
