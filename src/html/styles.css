@@ -18,11 +18,11 @@ body {
 }
 
 #leftPaddle {
-    left: 20px;
+    left: 20px; /*Offset from screen's left border*/
 }
 
 #rightPaddle {
-    right: 20px;
+    right: 20px; /*Offset from screen's right border*/
 }
 
 #ball {
@@ -32,6 +32,6 @@ body {
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%); /* Ensure the balls center is where its coordinates are recognized*/
     border-radius: 50%;
 }
