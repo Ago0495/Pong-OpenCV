@@ -8,7 +8,7 @@ const paddleWidth = parseInt(window.getComputedStyle(leftPaddle).width); /* Widt
 /* Can assume the Left and right paddle will share the same height and width */
 const borderWidth = paddleWidth+parseInt(window.getComputedStyle(leftPaddle).left)
 
-let ballSpeed = 10; /* Speed of the ball  */
+let ballSpeed = 1; /* Speed of the ball  */
 let centerX = gameArea.clientWidth / 2; /* Center of the game area */
 let centerY = gameArea.clientHeight / 2; /* Center of the game area */
 let ballX = centerX;
@@ -22,7 +22,7 @@ let ballVelocityY = ballVelocity[1];
 
 let Keys = [];
 
-const paddleSpeed = 10; /* Speed of the paddles */
+const paddleSpeed = 1; /* Speed of the paddles */
 
 /* Pick a random direction for rotation within set bounds, return radians */
 function get_random_radians() {

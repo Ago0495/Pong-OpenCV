@@ -1,0 +1,1130 @@
+<!DOCTYPE HTML>
+<HTML lang="en">
+	<Head>
+	<Title>"Pong"</TITLE>	
+		<!-- 
+		GLSL is the language used for shaders (GL Shader Language)
+		Attribute - you specify how to pull the data out of the buffers you supply.
+		Buffers - Data loaded onto the GPU (Normally vertex information)
+		Uniforms - global variables (in GLSL) that you set before you run the shader program
+		Textures - Textures are arrays of data you can randomly acces in your shader program.  
+		Varying - are way for a vertex shader to pass data to the fragmentShader.
+		-->
+
+		<script id="2dVertexShader" type="notjs">
+			attribute vec4 a_position;	
+			attribute vec3 vert_color;
+			varying vec3 fragColor;		
+
+			uniform vec3 transform;
+			uniform vec3 rotation;		
+			uniform vec3 scale;
+			
+			//This was added for camera move
+			uniform vec3 cameraLoc;
+			uniform vec3 cameraRotation;
+			uniform float n;
+			uniform float f;
+			uniform float r;
+			uniform float t;
+		
+			vec4 PositionObject(vec4 pos)
+			{
+				mat4 translateM = mat4(1.0,0.0,0.0,0.0,
+							0.0,1.0,0.0,0.0,
+							0.0,0.0,1.0,0.0,
+							transform.x,transform.y,transform.z,1.0);
+				return translateM*pos;	
+			}
+
+			vec4 ScaleObject (vec4 pos)
+			{
+				if (length(scale) != 0.0)
+				{
+					mat4 scaleM = mat4(
+						scale.x, 0.0, 0.0, 0.0,
+						0.0, scale.y, 0.0, 0.0,
+						0.0, 0.0, scale.z, 0.0,
+						0.0, 0.0, 0.0, 1.0
+					);	
+					return scaleM*pos;
+				}
+				else 
+				{
+					return pos;
+				}
+			}
+			
+			vec4 RotateObject (vec4 pos)
+			{
+				vec3 c = cos(rotation);
+				vec3 s = sin(rotation);
+				mat4 rotateX = mat4 (
+					1.0,	0.0,	0.0,	0.0,
+					0.0,	c.x,	s.x,	0.0,
+					0.0,	-1.0*s.x,	c.x,	0.0,
+					0.0,	0.0,	0.0,	1.0
+				);
+
+				mat4 rotateY = mat4(
+					c.y,	0.0,	-1.0*s.y,	0.0,
+					0.0,	1.0,	0.0,	0.0,
+					s.y,	0.0,	c.y,	0.0,
+					0.0,	0.0,	0.0,	1.0
+				);
+
+				mat4 rotateZ = mat4(
+				c.z,	s.z,	0.0,	0.0,
+				-1.0*s.z,	c.z,	0.0,	0.0,
+				0.0,	0.0,	1.0,	0.0,
+				0.0,	0.0,	0.0,	1.0
+				);
+
+				return rotateX * rotateY * rotateZ * pos;
+			}		
+
+			vec4 MoveCamera(vec4 pos)
+			{
+				vec3 cw = cos(cameraRotation);
+				vec3 sw = sin(cameraRotation);
+				
+				mat4 translateView = mat4(
+							1.0,0.0,0.0,0.0,
+							0.0,1.0,0.0,0.0,
+							0.0,0.0,-1.0,0.0,
+							-1.0*cameraLoc.x,-1.0*cameraLoc.y,cameraLoc.z,1.0
+							);
+							
+				mat4 rotateYView = mat4(
+							cw.y,0.0,-1.0*sw.y,0.0,
+							0.0,1.0,0.0,0.0,
+							sw.y,0.0,cw.y,0.0,
+							0.0,0.0,0.0,1.0
+							);
+										
+				mat4 rotateXView = mat4(
+							1.0,	0.0,		0.0,	0.0,
+							0.0,	cw.x,		sw.x,	0.0,
+							0.0,	-1.0*sw.x, 	cw.x,	0.0,
+							0.0,	0.0,		0.0,	1.0
+									);
+				
+				mat4 rotateZView = mat4(
+							cw.z,		sw.z,		0.0,	0.0,
+							-1.0*sw.z, 	cw.z,		0.0,	0.0,
+							0.0,		0.0,		1.0,	0.0,
+							0.0,		0.0,		0.0,	1.0
+									);		
+				return rotateXView*rotateYView*rotateZView*translateView*pos;
+			}
+			
+			vec4 ApplyProjection(vec4 pos)
+			{
+			
+				mat4 ComplexPerspective = mat4(
+					n/r, 0.0,0.0,0.0,
+					0.0, n/t,0.0,0.0,
+					0.0, 0.0, -1.0*(f+n)/(f-n), -1.0,
+					0.0, 0.0, -2.0*f*n/(f-n), 0.0
+					);
+											
+				mat4 ComplexOrtho = mat4(	
+					1.0/r, 0.0, 0.0, 0.0,
+					0.0, 1.0/t, 0.0, 0.0,	
+					0.0, 0.0, 1.0, 0.0,
+					0.0, 0.0, 0.0, 1.0	
+					);
+								
+				//Choose which projection you want here:  Perspective or Orthographic			
+				//return ComplexPerspective*pos;
+				return ComplexOrtho*pos;
+			}					
+			
+			//End of Camera Move			
+			
+			vec4 LookAt(vec3 F, vec3 U, vec4 pos)
+			{
+				//precision mediump float;
+				vec3 R = cross(F,U);
+				mat4 LookAt = mat4(
+					R.x,R.y,R.z,0.0,
+					U.x,U.y,U.z,0.0,
+					F.x,F.y,F.z,0.0,
+					0.0,0.0,0.0,1.0
+				);
+						
+				return LookAt*pos;	
+			}
+			
+
+			void main()
+			{
+				fragColor = vert_color;
+				//gl_Position=PositionObject(RotateObject(ScaleObject(a_position)));
+				gl_Position=ApplyProjection(MoveCamera(PositionObject(RotateObject(ScaleObject(a_position)))));
+			}		
+		</SCRIPT>
+		<script id="2dFragmentShader" type="notjs">
+			//Fragment shaders do not have precision so we have to set it.
+			precision mediump float;
+			varying vec3 fragColor;
+			void main()
+			{
+				gl_FragColor = vec4(fragColor,1);
+			}
+		</script>
+		
+		<script>
+			class main
+			{	
+				constructor()
+				{
+					this.Visual = [];
+					this.Solid = [];
+					this.Trigger = [];
+					this.ObjectCounter = 0;	
+					this.destroyList = [];
+					this.gameover = false
+	
+					this.myWEBGL = new WebGL_Interface();
+
+					//this.myTriangle = [];
+					this.Keys = [];
+					this.KeyPress = [];
+					this.KeyLock = [];
+
+					this.CreateObject(0, Camera, [0,0,0],[0,0,0])
+
+                    this.CreateObject(0,Wall, [0,0,0], [0,0,0])
+                    this.CreateObject(1,Ball, [0,0,0.0001], [0,0,0])
+                    this.CreateObject(1,PaddleRight, [0.9,0,0.0001], [0,0,0])
+                    this.CreateObject(1,PaddleLeft, [-0.9,0,0.0001], [0,0,0])
+	
+	
+					this.StartAll();
+				}
+	
+				StartAll()
+				{
+					for (var i in this.Visual)
+					{
+						this.Visual[i].OnStart();
+					}
+					for (var i in this.Solid)
+					{
+						this.Solid[i].OnStart();
+					}
+					for (var i in this.Trigger)
+					{
+						this.Trigger[i].OnStart();
+					}
+				}
+				
+				UpdateAll()
+				{
+					for(var i in this.Visual)
+					{
+						this.Visual[i].Update();
+					}
+					for(var i in this.Solid)
+					{
+						this.Solid[i].Update();
+					}
+					for(var i in this.Trigger)
+					{
+						this.Trigger[i].Update();
+					}
+
+					for (var i in this.destroyList)
+					{
+						this.DestroyObject(this.destroyList[i]);
+					}
+				}
+				
+				RenderAll()
+				{
+					for(var i in this.Visual)
+					{
+						this.Visual[i].Render(this.myWEBGL.program);
+					}
+					for(var i in this.Solid)
+					{
+						this.Solid[i].Render(this.myWEBGL.program);
+					}
+					for(var i in this.Trigger)
+					{
+						this.Trigger[i].Render(this.myWEBGL.program);
+					}
+				
+				}
+				CheckCollision(loc1,rad1,loc2, rad2)
+				{
+					//Return true if they collide, false if they don't.
+					//You could also pass two objects in as well.
+					if ((loc1[0] + rad1 > loc2[0] - rad2 && loc1[0] - rad1 < loc2[0] + rad2) &&
+						(loc1[1] + rad1 > loc2[1] - rad2 && loc1[1] - rad1 < loc2[1] + rad2) &&
+						(loc1[2] + rad1 > loc2[2] - rad2 && loc1[2] - rad1 < loc2[2] + rad2))
+					{
+						return true;
+					}
+					else
+						return false;
+				}
+				
+				CreateObject(type, prefab, loc, rot)
+				{
+					//type 0 = visual
+					//type 1 = solid
+					//type 2 = trigger
+					var temp = new prefab; //Yes this dark sorcery will work.
+					var id = "ID"+this.ObjectCounter;
+					this.ObjectCounter ++;
+					temp.id = id;
+					temp.prefab = prefab;
+					temp.loc = loc;
+					temp.rot = rot;
+						switch(type)
+						{
+							case 0:
+								this.Visual[id] = temp;
+							break;
+							case 1:
+								this.Solid[id] = temp;
+							break;
+							case 2:
+								this.Trigger[id] = temp;
+							break;
+							default:
+							break;
+						}		
+					//We can return the game object to the calling function
+					//Should the user want to set custom names or properties on it.
+					return temp;
+				}
+				
+				
+				DestroyObject(id)
+				{
+					if(id in this.Visual)
+					{
+						delete this.Visual[id];
+					}
+					if(id in this.Solid)
+					{
+						delete this.Solid[id];
+					}
+	
+					if(id in this.Trigger)
+					{
+						delete this.Trigger[id];
+					}
+				}
+				
+				KeyDown(event)
+				{
+					this.Keys[String.fromCharCode(event.keyCode)] = true;
+
+					if (this.Keys[String.fromCharCode(event.keyCode)] && 
+					!this.KeyLock[String.fromCharCode(event.keyCode)])
+					{
+						this.KeyPress[String.fromCharCode(event.keyCode)] = true;
+						this.KeyLock[String.fromCharCode(event.keyCode)] = true;
+						// console.log(String.fromCharCode(event.keyCode) +" should be true - "+
+						// this.KeyPress[String.fromCharCode(event.keyCode)]);
+					}
+					else
+					{
+						this.KeyPress[String.fromCharCode(event.keyCode)] = false;
+						// console.log(String.fromCharCode(event.keyCode) +" should be false - "+
+						// this.KeyPress[String.fromCharCode(event.keyCode)]);
+					}
+					// console.log(String.fromCharCode(event.keyCode) +" should be true - "+
+					// this.Keys[String.fromCharCode(event.keyCode)]);
+				}
+				
+				KeyUp(event)
+				{
+					this.Keys[String.fromCharCode(event.keyCode)] = false;
+					this.KeyLock[String.fromCharCode(event.keyCode)] = false;
+					this.KeyPress[String.fromCharCode(event.keyCode)] = false;
+					// console.log(String.fromCharCode(event.keyCode) +" should be false - "+
+					// this.KeyPress[String.fromCharCode(event.keyCode)]);
+					// this.KeyPress[String.fromCharCode(event.keyCode)] = false;
+					// console.log(String.fromCharCode(event.keyCode) +" should be false - "+
+					// this.KeyPress[String.fromCharCode(event.keyCode)]);
+				}
+				
+				MouseClick(event)
+				{
+					var rect = canvas.getBoundingClientRect();
+					var realX = event.clientX - rect.left;
+					var realY = event.clientY - rect.top;
+					// console.log(realX+","+realY);
+					var x = -1 + 2*realX/myCanvas.width;
+					var y = -1 + 2*(myCanvas.height - realY)/myCanvas.height;
+					// console.log("The click occurred on "+x+","+y);
+				}
+	
+				
+				//Static call backs go down here
+				//   |
+				//  \ /
+				//   v
+				static keyD(event)
+				{
+					m.KeyDown(event);
+				}
+				static keyU(event)
+				{
+					m.KeyUp(event);
+				}
+	
+				static mouseH(event)
+				{
+					m.MouseClick(event);
+				}
+				
+				static MainLoop()
+				{
+					m.UpdateAll();
+					m.RenderAll();
+					
+					requestAnimationFrame(main.MainLoop);
+				}
+	
+			}
+			
+			class WebGL_Interface
+			{
+				constructor()
+				{
+					this.vertexShaderSource = document.getElementById("2dVertexShader").text;
+					this.fragmentShaderSource = document.getElementById("2dFragmentShader").text;
+					this.vertexShader = this.createShader(gl.VERTEX_SHADER, this.vertexShaderSource);
+					this.fragmentShader = this.createShader(gl.FRAGMENT_SHADER, this.fragmentShaderSource);
+					//Link to program
+					this.program = this.createProgram(this.vertexShader,this.fragmentShader);
+
+					//setup our viewport
+					gl.viewport(0,0, gl.canvas.width, gl.canvas.height);
+					//set clear colors
+					gl.clearColor(1,1,1,1);
+					gl.clear(gl.COLOR_BUFFER_BIT);		
+					//what progbram to use;
+					
+					//We will need this for now!
+					gl.enable(gl.DEPTH_TEST);
+					
+					gl.useProgram(this.program);
+
+					// //Added for Camera move!
+					var camLoc  = gl.getUniformLocation(this.program,'cameraLoc');
+					gl.uniform3fv(camLoc,new Float32Array([0,0,0]));
+					var worldLoc = gl.getUniformLocation(this.program,'cameraRotation');
+					gl.uniform3fv(worldLoc,new Float32Array([0,0,0]));
+					
+					var tempLoc = gl.getUniformLocation(this.program,'n');
+					gl.uniform1f(tempLoc,.1);
+					tempLoc = gl.getUniformLocation(this.program,'f');
+					gl.uniform1f(tempLoc,500);
+					tempLoc = gl.getUniformLocation(this.program,'r');
+					gl.uniform1f(tempLoc,1);
+					tempLoc = gl.getUniformLocation(this.program,'t');
+					gl.uniform1f(tempLoc,1 * 3/4);
+				}
+				
+				createShader(type,source)
+				{
+					var shader = gl.createShader(type);
+					gl.shaderSource(shader,source);
+					gl.compileShader(shader);
+					var success = gl.getShaderParameter(shader,gl.COMPILE_STATUS);
+					if(success)
+					{
+						return shader;
+					}
+					//Else it didn't work
+					console.error(gl.getShaderInfoLog(shader));
+					gl.deleteShader(shader);
+				}
+				
+				createProgram(vs,fs)
+				{
+					var program = gl.createProgram();
+					gl.attachShader(program,vs);
+					gl.attachShader(program,fs);
+					gl.linkProgram(program);
+					var succsess = gl.getProgramParameter(program,gl.LINK_STATUS);
+					if(succsess)
+					{
+						return program;
+					}
+					console.error(gl.getProgramInfoLog(program));
+					gl.deleteProgram(program);	
+				}
+			
+			}
+			
+			class Transform
+			{
+				constructor()
+				{
+					this.forward = [0,0,1];
+					this.right = [1,0,0];
+					this.up = [0,1,0];
+				}
+			
+				doRotations(RotAngles)
+				{
+					this.xRot = [
+								[1,0,0,0],
+								[0,Math.cos(RotAngles[0]),-1*Math.sin(RotAngles[0]),0],
+								[0,Math.sin(RotAngles[0]),Math.cos(RotAngles[0]),0],
+								[0,0,0,1]
+							];		
+					this.yRot = [
+							[Math.cos(RotAngles[1]),0,Math.sin(RotAngles[1]),0],
+							[0,1,0,0],
+							[-1*Math.sin(RotAngles[1]),0,Math.cos(RotAngles[1]),0],
+							[0,0,0,1]	
+							];
+					this.zRot = [
+								[Math.cos(RotAngles[2]),-1*Math.sin(RotAngles[2]),0,0],
+								[Math.sin(RotAngles[2]),Math.cos(RotAngles[2]),0,0],
+								[0,0,1,0],
+								[0,0,0,1]
+							]
+					//this.forward = this.crossMultiply(xRot,[0,0,1,0]);		
+					this.forward = this.crossMultiply(this.zRot,this.crossMultiply(this.yRot,this.crossMultiply(this.xRot,[0,0,1,0])))
+					this.right = this.crossMultiply(this.zRot,this.crossMultiply(this.yRot,this.crossMultiply(this.xRot,[1,0,0,0])))
+					this.up = this.crossMultiply(this.zRot,this.crossMultiply(this.yRot,this.crossMultiply(this.xRot,[0,1,0,0])))
+				}			
+				crossMultiply(M,V)
+				{
+				//console.log(M[0][3]);
+				//console.log(V[3]);
+				var temp = [
+							M[0][0]*V[0]+M[0][1]*V[1]+M[0][2] * V[2]+ M[0][3]*V[3],
+							M[1][0]*V[0]+M[1][1]*V[1]+M[1][2] * V[2]+ M[1][3]*V[3],
+							M[2][0]*V[0]+M[2][1]*V[1]+M[2][2] * V[2]+ M[2][3]*V[3],
+							M[3][0]*V[0]+M[3][1]*V[1]+M[3][2] * V[2]+ M[3][3]*V[3]
+							]
+				//console.log(temp);
+					return temp;
+				}				
+			}
+
+			class GameObject
+			{
+				constructor() 
+				{
+					this.loc = [0,0,0];
+					this.rot = [0,0,0];
+					this.isTrigger = false;
+					this.collisionRadius = 0.0;
+					this.velocity = [0,0,0];
+					this.angVelocity = [0,0,0];
+					this.name = "default";
+					this.id = 0;
+					this.prefab;
+					this.transform = new Transform();
+				}
+				
+				Move()
+				{
+					var tempP = [0,0,0]
+					for(var i =0; i< 3;i ++)
+					{
+						tempP[i] = this.loc[i];
+						tempP[i] += this.velocity[i];
+						this.rot[i] += this.angVelocity[i];
+					}
+					if(!this.isTrigger)
+					{
+						var clear = true;
+						for(var so in m.Solid)
+						{
+							if(m.Solid[so] != this)
+							{
+								if(m.CheckCollision(tempP,this.collisionRadius,m.Solid[so].loc,m.Solid[so].collisionRadius))
+								{
+									this.OnCollisionEnter(m.Solid[so]);
+									m.Solid[so].OnCollisionEnter(this);
+									clear = false;
+								}
+							}
+						} 
+						if(clear)
+						{
+							// console.log(this.name + tempP)
+							this.loc = tempP;
+						}
+
+						for (var to in m.Trigger)
+						{
+							if (m.Trigger[to] != this)
+							{
+								if(m.CheckCollision(tempP, this.collisionRadius, m.Trigger[to].loc, m.Trigger[to].collisionRadius))
+								{
+									this.OnTriggerEnter(m.Trigger[to]);
+									// m.Trigger[to].OnTriggerEnter(this);
+								}
+							}
+						}
+					}
+					else
+					{
+						this.loc = tempP;
+						//see if there are any collisions
+						//handle them.
+					}
+				}
+
+				
+				Update()
+				{
+					console.error(this.name +" update() is NOT IMPLEMENTED!");
+				}
+				Render(program)
+				{
+					console.error(this.name + " render() is NOT IMPLEMENTED!");
+				}	
+
+				OnStart()
+				{
+					console.error(this.name + "Default Start");
+				}
+
+				OnTriggerEnter(other)
+				{
+					// console.error(this.name + "Default Trigger");
+				}
+
+				OnCollisionEnter(other)
+				{
+					// console.error(this.name + "Default Collision")
+				}
+			}
+
+			//Added for moving the camera!
+			class Camera extends GameObject
+			{
+				constructor()
+				{
+					super();
+					this.name = "Camera"
+					this.collisionRadius = Math.sqrt(2*(0.1 ** 2))
+				}
+
+				Update()
+				{
+					// this.velocity = [0,0,0]
+					// this.angVelocity = [0,0,0]
+
+					// if("A" in m.Keys && m.Keys["A"])
+					// {
+					// 	this.angVelocity[1] -=.005;		//euler angles x,y,z
+					// }
+					// if("D" in m.Keys && m.Keys["D"])
+					// {
+					// 	this.angVelocity[1] +=.005;
+					// }
+					// this.transform.doRotations(this.rot);
+					// var tempF = this.transform.forward;
+					// if("W" in m.Keys && m.Keys["W"])
+					// {
+					// 	for(var i =0; i < 3; i ++)
+					// 	{
+					// 		this.velocity[i] += tempF[i]*.01; 
+					// 	}
+					// }
+					// if("S" in m.Keys && m.Keys["S"])
+					// {
+					// 	for(var i =0; i < 3; i ++)
+					// 	{
+					// 		this.velocity[i] -= tempF[i]*.01; 
+					// 	}
+					// }
+					// var tempF = this.transform.up;
+					// if("Z" in m.Keys && m.Keys["Z"])
+					// {
+					// 	for(var i =0; i < 3; i ++)
+					// 	{
+					// 		this.velocity[i] -= tempF[i]*.01; 
+					// 	}
+					// }
+					// if("X" in m.Keys && m.Keys["X"])
+					// {
+					// 	for(var i =0; i < 3; i ++)
+					// 	{
+					// 		this.velocity[i] += tempF[i]*.01; 
+					// 	}
+					// }
+					// this.Move();
+                    
+				}
+				Render(program)
+				{
+					var camLoc  = gl.getUniformLocation(program,'cameraLoc');
+					gl.uniform3fv(camLoc,new Float32Array(this.loc));
+					var worldLoc = gl.getUniformLocation(program,'cameraRotation');
+					gl.uniform3fv(worldLoc,new Float32Array(this.rot));
+				}	
+			}
+
+			class PaddleLeft extends GameObject
+			{
+				constructor()
+				{
+					super();
+					this.name = "PaddleLeft";
+					this.collisionRadius = 0.05			
+                    this.scale = [0.1,0.1,0.1]
+					this.buffer=gl.createBuffer();		
+				}
+				Render(program)
+				{
+					//console.log("We are trying to render");		 
+					gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+					
+					//First we bind the buffer for triangle 1
+					var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+					var size = 3;          // 2 components per iteration
+					var type = gl.FLOAT;   // the data is 32bit floats
+					var normalize = false; // don't normalize the data
+					var stride = 6*Float32Array.BYTES_PER_ELEMENT;	//Size in bytes of each element     // 0 = move forward size * sizeof(type) each iteration to get the next position
+					var offset = 0;        // start at the beginning of the buffer
+					gl.enableVertexAttribArray(positionAttributeLocation);
+					gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+					
+					//Now we have to do this for color
+					var colorAttributeLocation = gl.getAttribLocation(program,"vert_color");
+					//We don't have to bind because we already have the correct buffer bound.
+					size = 3;
+					type = gl.FLOAT;
+					normalize = false;
+					stride = 6*Float32Array.BYTES_PER_ELEMENT;	//Size in bytes of each element
+					offset = 3*Float32Array.BYTES_PER_ELEMENT;									//size of the offset
+					gl.enableVertexAttribArray(colorAttributeLocation);
+					gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
+							
+					var tranLoc  = gl.getUniformLocation(program,'transform');
+					gl.uniform3fv(tranLoc,new Float32Array(this.loc));
+					var thetaLoc = gl.getUniformLocation(program,'rotation');
+					gl.uniform3fv(thetaLoc,new Float32Array(this.rot));
+					var scaleLoc = gl.getUniformLocation(program,'scale');
+					gl.uniform3fv(scaleLoc,new Float32Array(this.scale));
+					
+					gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+
+					var color1 = [1,1,1]
+					var color2 = [1,1,1]
+					var color3 = [1,1,1]
+					var color4 = [1,1,1]
+
+					this.vertices =
+					[
+						0.8, 0.75, 0, 	color1[0],color1[1],color1[2],
+						1, 0.75, 0, 	color2[0],color2[1],color2[2],
+						0.8, -0.75, 0, 	color3[0],color3[1],color3[2],		
+						1, -0.75, 0, 	color4[0],color4[1],color4[2],
+					]	
+					gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
+					
+					var primitiveType = gl.TRIANGLE_STRIP;
+					offset = 0;
+					var count = 4;
+					gl.drawArrays(primitiveType, offset, count);
+				}
+				Update()
+				{
+					this.velocity = [0,0,0]
+                    this.angVelocity = [0,0,0]
+					this.transform.doRotations(this.rot);
+					var tempF = this.transform.up;
+					if("W" in m.Keys && m.Keys["W"])
+					{
+						for(var i =0; i < 3; i ++)
+						{
+							this.velocity[i] += tempF[i]*.01; 
+						}
+					}
+					if("S" in m.Keys && m.Keys["S"])
+					{
+						for(var i =0; i < 3; i ++)
+						{
+							this.velocity[i] -= tempF[i]*.01; 
+						}
+					}
+					this.Move();
+				}
+
+				OnTriggerEnter(other)
+				{
+                    
+				}
+			}
+			
+			class PaddleRight extends GameObject
+			{
+				constructor()
+				{
+					super();
+					this.name = "PaddleRight";
+					this.collisionRadius = 0.05			
+                    this.scale = [0.1,0.1,0.1]
+					this.buffer=gl.createBuffer();		
+				}
+				Render(program)
+				{
+					//console.log("We are trying to render");		 
+					gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+					
+					//First we bind the buffer for triangle 1
+					var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+					var size = 3;          // 2 components per iteration
+					var type = gl.FLOAT;   // the data is 32bit floats
+					var normalize = false; // don't normalize the data
+					var stride = 6*Float32Array.BYTES_PER_ELEMENT;	//Size in bytes of each element     // 0 = move forward size * sizeof(type) each iteration to get the next position
+					var offset = 0;        // start at the beginning of the buffer
+					gl.enableVertexAttribArray(positionAttributeLocation);
+					gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+					
+					//Now we have to do this for color
+					var colorAttributeLocation = gl.getAttribLocation(program,"vert_color");
+					//We don't have to bind because we already have the correct buffer bound.
+					size = 3;
+					type = gl.FLOAT;
+					normalize = false;
+					stride = 6*Float32Array.BYTES_PER_ELEMENT;	//Size in bytes of each element
+					offset = 3*Float32Array.BYTES_PER_ELEMENT;									//size of the offset
+					gl.enableVertexAttribArray(colorAttributeLocation);
+					gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
+							
+					var tranLoc  = gl.getUniformLocation(program,'transform');
+					gl.uniform3fv(tranLoc,new Float32Array(this.loc));
+					var thetaLoc = gl.getUniformLocation(program,'rotation');
+					gl.uniform3fv(thetaLoc,new Float32Array(this.rot));
+					var scaleLoc = gl.getUniformLocation(program,'scale');
+					gl.uniform3fv(scaleLoc,new Float32Array(this.scale));
+					
+					gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+
+					var color1 = [1,1,1]
+					var color2 = [1,1,1]
+					var color3 = [1,1,1]
+					var color4 = [1,1,1]
+
+					this.vertices =
+					[
+						-0.8, 0.75, 0, 	color1[0],color1[1],color1[2],
+						-1, 0.75, 0, 	color2[0],color2[1],color2[2],
+						-0.8, -0.75, 0, 	color3[0],color3[1],color3[2],		
+						-1, -0.75, 0, 	color4[0],color4[1],color4[2],
+					]	
+					gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
+					
+					var primitiveType = gl.TRIANGLE_STRIP;
+					offset = 0;
+					var count = 4;
+					gl.drawArrays(primitiveType, offset, count);
+				}
+				Update()
+				{
+					this.velocity = [0,0,0]
+                    this.angVelocity = [0,0,0]
+					this.transform.doRotations(this.rot);
+					var tempF = this.transform.up;
+					if("I" in m.Keys && m.Keys["I"])
+					{
+						for(var i =0; i < 3; i ++)
+						{
+							this.velocity[i] += tempF[i]*.01; 
+						}
+					}
+					if("K" in m.Keys && m.Keys["K"])
+					{
+						for(var i =0; i < 3; i ++)
+						{
+							this.velocity[i] -= tempF[i]*.01; 
+						}
+					}
+					this.Move();
+				}
+
+				OnTriggerEnter(other)
+				{
+                    
+				}
+			}
+			
+			class Ball extends GameObject
+			{
+				constructor()
+				{
+					super();
+					this.name = "Ball";
+					this.collisionRadius = 0.075;
+					this.scale = [0.5,0.5,0.5];
+					this.buffer=gl.createBuffer();
+
+					this.speed = 0.0025;
+
+					var randomAngle = Math.random() * 2 * Math.PI;
+					var randDirX = (Math.random()*2 -1) * this.speed;
+					var randDirY = (Math.random()*2 -1) * this.speed;
+
+					this.velocity = [randDirX,randDirY,0];
+				}
+
+				OnStart()
+				{
+                    this.velocity = [0.001,0,0];
+				}
+				
+				Update()
+				{
+                    this.angVelocity = [0,0,0];
+					this.Move()
+				}
+
+				Render(program)
+				{
+					//console.log("We are trying to render");		 
+					gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+					
+					//First we bind the buffer for triangle 1
+					var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+					var size = 3;          // 2 components per iteration
+					var type = gl.FLOAT;   // the data is 32bit floats
+					var normalize = false; // don't normalize the data
+					var stride = 6*Float32Array.BYTES_PER_ELEMENT;	//Size in bytes of each element     // 0 = move forward size * sizeof(type) each iteration to get the next position
+					var offset = 0;        // start at the beginning of the buffer
+					gl.enableVertexAttribArray(positionAttributeLocation);
+					gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+					
+					//Now we have to do this for color
+					var colorAttributeLocation = gl.getAttribLocation(program,"vert_color");
+					//We don't have to bind because we already have the correct buffer bound.
+					size = 3;
+					type = gl.FLOAT;
+					normalize = false;
+					stride = 6*Float32Array.BYTES_PER_ELEMENT;	//Size in bytes of each element
+					offset = 3*Float32Array.BYTES_PER_ELEMENT;									//size of the offset
+					gl.enableVertexAttribArray(colorAttributeLocation);
+					gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
+							
+					var tranLoc  = gl.getUniformLocation(program,'transform');
+					gl.uniform3fv(tranLoc,new Float32Array(this.loc));
+					var thetaLoc = gl.getUniformLocation(program,'rotation');
+					gl.uniform3fv(thetaLoc,new Float32Array(this.rot));
+					var scaleLoc = gl.getUniformLocation(program,'scale');
+					gl.uniform3fv(scaleLoc,new Float32Array(this.scale));
+															
+					var radius = 0.05;
+					var verts = 20;
+					
+					gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+
+					this.vertices = this.generateCircle(radius, verts);
+
+					gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
+					
+					var primitiveType = gl.TRIANGLE_FAN;
+					offset = 0;
+					var count = this.vertices.length;
+					gl.drawArrays(primitiveType, offset, count);
+				}
+
+				OnCollisionEnter(other)
+				{
+					if (this.velocity[0] > 0 && this.loc[0] + this.collisionRadius < other.loc[0] - other.collisionRadius)
+					{
+						this.velocity[0] = -1*this.velocity[0];
+					}
+					else if (this.velocity[0] < 0 && this.loc[0] - this.collisionRadius > other.loc[0] + other.collisionRadius)
+					{
+						this.velocity[0] = -1*this.velocity[0];
+					}
+					else if (this.velocity[1] > 0 && this.loc[1] + this.collisionRadius < other.loc[1] - other.collisionRadius)
+					{
+						this.velocity[1] = -1*this.velocity[1];
+					}
+					else if (this.velocity[1] < 0 && this.loc[1] - this.collisionRadius > other.loc[1] + other.collisionRadius)
+					{
+						this.velocity[1] = -1*this.velocity[1];
+					}
+				}
+
+				OnTriggerEnter(other)
+				{
+					// if (other.name == "Dart")
+					// {
+					// 	m.CreateObject(2, Coin, [this.loc[0],this.loc[1], this.loc[2]], [0,0,0])
+					// 	m.destroyList.push(this.id)
+					// 	m.destroyList.push(other.id)
+					// }
+				}
+				
+				generateCircle(radius, verts)
+				{
+					var vertices = []
+					var r = 1;
+					var g = 1;
+					var b = 1;
+
+					vertices.push(0,0,0)
+					vertices.push(1,1,1)
+
+					for (var i = 0; i <= verts; i++)
+					{
+						var vertX = radius * Math.cos(i * (2 * Math.PI)/verts);
+						var vertY = radius * Math.sin(i * (2 * Math.PI)/verts);
+						vertices.push(vertX,vertY,0)
+						vertices.push(r,g,b)
+					}			
+					return vertices
+				}
+			}
+			
+			class Wall extends GameObject
+			{
+				constructor()
+				{
+					super();
+					this.name = "Wall";
+					this.collisionRadius = 1;
+					this.scale = [10,10,1];
+					this.buffer=gl.createBuffer();
+					// gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+
+					// var color1 = [(this.loc[0] + 1) / 2,(this.loc[1] + 1) / 2,(this.loc[2] + 1) / 2]
+					// var color2 = [(this.loc[0] + 1) / 2,(this.loc[1] + 1) / 2,(this.loc[2] + 1) / 2]
+					// var color3 = [(this.loc[0] + 1) / 2,(this.loc[1] + 1) / 2,(this.loc[2] + 1) / 2]
+					// var color4 = [(this.loc[0] + 1) / 2,(this.loc[1] + 1) / 2,(this.loc[2] + 1) / 2]
+
+					// this.vertices =
+					// [
+					// 	-0.05, 0.05, 0, 	color1[0],color1[1],color1[2],
+					// 	0.05, 0.05, 0, 	color2[0],color2[1],color2[2],
+					// 	-0.05, -0.05, 0, 	color3[0],color3[1],color3[2],		
+					// 	0.05, -0.05, 0, 	color4[0],color4[1],color4[2],
+					// ]	
+					// gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
+				}
+				//Again this could be inherited ... but not always...not all objects
+				
+				Render(program)
+				{
+					//console.log("We are trying to render");		 
+					gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+					
+					//First we bind the buffer for triangle 1
+					var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+					var size = 3;          // 2 components per iteration
+					var type = gl.FLOAT;   // the data is 32bit floats
+					var normalize = false; // don't normalize the data
+					var stride = 6*Float32Array.BYTES_PER_ELEMENT;	//Size in bytes of each element     // 0 = move forward size * sizeof(type) each iteration to get the next position
+					var offset = 0;        // start at the beginning of the buffer
+					gl.enableVertexAttribArray(positionAttributeLocation);
+					gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+					
+					//Now we have to do this for color
+					var colorAttributeLocation = gl.getAttribLocation(program,"vert_color");
+					//We don't have to bind because we already have the correct buffer bound.
+					size = 3;
+					type = gl.FLOAT;
+					normalize = false;
+					stride = 6*Float32Array.BYTES_PER_ELEMENT;	//Size in bytes of each element
+					offset = 3*Float32Array.BYTES_PER_ELEMENT;									//size of the offset
+					gl.enableVertexAttribArray(colorAttributeLocation);
+					gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
+							
+					var tranLoc  = gl.getUniformLocation(program,'transform');
+					gl.uniform3fv(tranLoc,new Float32Array(this.loc));
+					var thetaLoc = gl.getUniformLocation(program,'rotation');
+					gl.uniform3fv(thetaLoc,new Float32Array(this.rot));
+					var scaleLoc = gl.getUniformLocation(program,'scale');
+					gl.uniform3fv(scaleLoc,new Float32Array(this.scale));
+					
+					gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+
+					var color1 = [0,0,0]
+					var color2 = [0,0,0]
+					var color3 = [0,0,0]
+					var color4 = [0,0,0]
+
+					this.vertices =
+					[
+						-1, 1, 0, 	color1[0],color1[1],color1[2],
+						1, 1, 0, 	color2[0],color2[1],color2[2],
+						-1, -1, 0, 	color3[0],color3[1],color3[2],		
+						1, -1, 0, 	color4[0],color4[1],color4[2],
+					]	
+					gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
+					
+					var primitiveType = gl.TRIANGLE_STRIP;
+					offset = 0;
+					var count = 4;
+					gl.drawArrays(primitiveType, offset, count);
+				}
+
+				Update()
+				{
+					// gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+
+					// var color1 = [(this.loc[0] + 1) / 2,(this.loc[1] + 1) / 2,(this.loc[2] + 1) / 2]
+					// var color2 = [(this.loc[0] + 1) / 2,(this.loc[1] + 1) / 2,(this.loc[2] + 1) / 2]
+					// var color3 = [(this.loc[0] + 1) / 2,(this.loc[1] + 1) / 2,(this.loc[2] + 1) / 2]
+					// var color4 = [(this.loc[0] + 1) / 2,(this.loc[1] + 1) / 2,(this.loc[2] + 1) / 2]
+
+					// this.vertices =
+					// [
+					// 	-0.1, 0.1, 0, 	color1[0] + 0.05,color1[1] - 0.05,color1[2],
+					// 	0.1, 0.1, 0, 	color2[0] - 0.05,color2[1] - 0.05,color2[2],
+					// 	-0.1, -0.1, 0, 	color3[0] + 0.05,color3[1] + 0.05,color3[2],		
+					// 	0.1, -0.1, 0, 	color4[0] - 0.05,color4[1] + 0.05,color4[2],
+					// ]	
+					// gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
+					// this.Move()
+				}
+
+				OnStart()
+				{
+				}
+			}
+
+	</script>
+
+	<BODY style="padding: 15px;">
+		<HEADER>
+            <H1 style="text-align: center;">Pong</H1>
+		</HEADER>
+		
+		<CANVAS id="myCanvas" width="800" height="600" style = "display: block; top: auto; left: 0px; right: 0px; margin: auto; border: 1px solid #000000; margin-top: 20px;">
+			Your browser does not support canvas.
+		</CANVAS>
+
+		
+		<SCRIPT>
+			var canvas = document.getElementById("myCanvas");
+			var gl = canvas.getContext("webgl");
+			var m = new main();
+			window.onkeydown = main.keyD;
+			window.onkeyup = main.keyU;
+			canvas.addEventListener("click",main.mouseH);
+			
+			requestAnimationFrame(main.MainLoop);	
+			
+		</SCRIPT>
+		
+		<FOOTER>
+		
+		</FOOTER>
+
+		
+	</BODY>
+	
+</HTML>
+		
+		
