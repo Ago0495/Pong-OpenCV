@@ -20,6 +20,8 @@ let ballVelocity = get_vector_components(ballSpeed, get_random_radians()); /* In
 let ballVelocityX = ballVelocity[0];
 let ballVelocityY = ballVelocity[1]; 
 
+let Keys = [];
+
 const paddleSpeed = 10; /* Speed of the paddles */
 
 /* Pick a random direction for rotation within set bounds, return radians */
@@ -76,19 +78,39 @@ function update() {
     ball.style.top = ballY + "px";
     leftPaddle.style.top = leftPaddleY + "px";
     rightPaddle.style.top = rightPaddleY + "px";
+
+    if ("W" in Keys && Keys["W"])
+    {
+        leftPaddleY -= paddleSpeed;
+    }
+    if ("S" in Keys && Keys["S"])
+    {
+        leftPaddleY += paddleSpeed;
+    }
 }
 
 /* Handle keydown event */
 function keyDown(e) {
-    if (e.key === "w" && leftPaddleY > 0) { /* Only allow movement up if the paddle is not at the top of the game area */
-        leftPaddleY -= paddleSpeed; /* Move the paddle up*/
-    } else if (e.key === "s" && leftPaddleY < gameArea.clientHeight - paddleHeight) { /* Only allow movement down if the paddle is not at the bottom of the game area */
-        leftPaddleY += paddleSpeed; /* Move the paddle down */
-    }
+    // if (e.key === "w" && leftPaddleY > 0) { /* Only allow movement up if the paddle is not at the top of the game area */
+    //     leftPaddleY -= paddleSpeed; /* Move the paddle up*/
+    // } else if (e.key === "s" && leftPaddleY < gameArea.clientHeight - paddleHeight) { /* Only allow movement down if the paddle is not at the bottom of the game area */
+    //     leftPaddleY += paddleSpeed; /* Move the paddle down */
+    // }
+
+    Keys[String.fromCharCode(e.keyCode)] = true;
+    // console.log(String.fromCharCode(e.keyCode) +" should be true - "+
+    // Keys[String.fromCharCode(e.keyCode)]);
+}
+
+function keyUp(e) {
+    Keys[String.fromCharCode(e.keyCode)] = false;
+    // console.log(String.fromCharCode(e.keyCode) +" should be false - "+
+    // Keys[String.fromCharCode(e.keyCode)]);
 }
 
 /* Listen for keydown event */
 document.addEventListener("keydown", keyDown);
+document.addEventListener("keyup", keyUp);
 
 /* Game loop to constant update the game */
 function gameLoop() {
