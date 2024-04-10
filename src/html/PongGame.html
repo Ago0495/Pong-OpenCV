@@ -196,6 +196,11 @@
 					this.CreateObject(0, Camera, [0,0,0],[0,0,0])
 
                     this.CreateObject(0,Wall, [0,0,0], [0,0,0])
+                    this.CreateObject(1,Wall, [0,1.75,0], [0,0,0])
+                    this.CreateObject(1,Wall, [0,-1.75,0], [0,0,0])
+                    this.CreateObject(2,Bounds, [2,0,0], [0,0,0])
+                    this.CreateObject(2,Bounds, [-2,0,0], [0,0,0])
+
                     this.CreateObject(1,Ball, [0,0,0.0001], [0,0,0])
                     this.CreateObject(1,PaddleRight, [0.9,0,0.0001], [0,0,0])
                     this.CreateObject(1,PaddleLeft, [-0.9,0,0.0001], [0,0,0])
@@ -879,7 +884,7 @@
 
 				OnStart()
 				{
-                    this.velocity = [0.001,0,0];
+                    
 				}
 				
 				Update()
@@ -955,21 +960,15 @@
 						this.velocity[1] = -1*this.velocity[1];
 					}
 
-                    if (other.name == "Wall")
-                    {
-                        m.CreateObject(1, Ball, [0,0,0], [0,0,0])
-                        m.destroyList.push(this.id)
-                    }
 				}
 
 				OnTriggerEnter(other)
 				{
-					// if (other.name == "Dart")
-					// {
-					// 	m.CreateObject(2, Coin, [this.loc[0],this.loc[1], this.loc[2]], [0,0,0])
-					// 	m.destroyList.push(this.id)
-					// 	m.destroyList.push(other.id)
-					// }
+                    if (other.name == "Bounds")
+                    {
+                        m.CreateObject(1, Ball, [0,0,0.0001], [0,0,0])
+                        m.destroyList.push(this.id)
+                    }
 				}
 				
 				generateCircle(radius, verts)
@@ -1019,6 +1018,97 @@
 					// gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
 				}
 				//Again this could be inherited ... but not always...not all objects
+				
+				Render(program)
+				{
+					//console.log("We are trying to render");		 
+					gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+					
+					//First we bind the buffer for triangle 1
+					var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+					var size = 3;          // 2 components per iteration
+					var type = gl.FLOAT;   // the data is 32bit floats
+					var normalize = false; // don't normalize the data
+					var stride = 6*Float32Array.BYTES_PER_ELEMENT;	//Size in bytes of each element     // 0 = move forward size * sizeof(type) each iteration to get the next position
+					var offset = 0;        // start at the beginning of the buffer
+					gl.enableVertexAttribArray(positionAttributeLocation);
+					gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+					
+					//Now we have to do this for color
+					var colorAttributeLocation = gl.getAttribLocation(program,"vert_color");
+					//We don't have to bind because we already have the correct buffer bound.
+					size = 3;
+					type = gl.FLOAT;
+					normalize = false;
+					stride = 6*Float32Array.BYTES_PER_ELEMENT;	//Size in bytes of each element
+					offset = 3*Float32Array.BYTES_PER_ELEMENT;									//size of the offset
+					gl.enableVertexAttribArray(colorAttributeLocation);
+					gl.vertexAttribPointer(colorAttributeLocation, size, type, normalize, stride, offset);
+							
+					var tranLoc  = gl.getUniformLocation(program,'transform');
+					gl.uniform3fv(tranLoc,new Float32Array(this.loc));
+					var thetaLoc = gl.getUniformLocation(program,'rotation');
+					gl.uniform3fv(thetaLoc,new Float32Array(this.rot));
+					var scaleLoc = gl.getUniformLocation(program,'scale');
+					gl.uniform3fv(scaleLoc,new Float32Array(this.scale));
+					
+					gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+
+					var color1 = [0,0,0]
+					var color2 = [0,0,0]
+					var color3 = [0,0,0]
+					var color4 = [0,0,0]
+
+					this.vertices =
+					[
+						-1, 1, 0, 	color1[0],color1[1],color1[2],
+						1, 1, 0, 	color2[0],color2[1],color2[2],
+						-1, -1, 0, 	color3[0],color3[1],color3[2],		
+						1, -1, 0, 	color4[0],color4[1],color4[2],
+					]	
+					gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
+					
+					var primitiveType = gl.TRIANGLE_STRIP;
+					offset = 0;
+					var count = 4;
+					gl.drawArrays(primitiveType, offset, count);
+				}
+
+				Update()
+				{
+					// gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+
+					// var color1 = [(this.loc[0] + 1) / 2,(this.loc[1] + 1) / 2,(this.loc[2] + 1) / 2]
+					// var color2 = [(this.loc[0] + 1) / 2,(this.loc[1] + 1) / 2,(this.loc[2] + 1) / 2]
+					// var color3 = [(this.loc[0] + 1) / 2,(this.loc[1] + 1) / 2,(this.loc[2] + 1) / 2]
+					// var color4 = [(this.loc[0] + 1) / 2,(this.loc[1] + 1) / 2,(this.loc[2] + 1) / 2]
+
+					// this.vertices =
+					// [
+					// 	-0.1, 0.1, 0, 	color1[0] + 0.05,color1[1] - 0.05,color1[2],
+					// 	0.1, 0.1, 0, 	color2[0] - 0.05,color2[1] - 0.05,color2[2],
+					// 	-0.1, -0.1, 0, 	color3[0] + 0.05,color3[1] + 0.05,color3[2],		
+					// 	0.1, -0.1, 0, 	color4[0] - 0.05,color4[1] + 0.05,color4[2],
+					// ]	
+					// gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
+					// this.Move()
+				}
+
+				OnStart()
+				{
+				}
+			}
+
+			class Bounds extends GameObject
+			{
+				constructor()
+				{
+					super();
+					this.name = "Bounds";
+					this.collisionRadius = 1;
+					this.scale = [1,1,1];
+					this.buffer=gl.createBuffer();
+				}
 				
 				Render(program)
 				{
