@@ -870,16 +870,19 @@
 
 					this.speed = 0.0025;
 
-					var randomAngle = Math.random() * 2 * Math.PI;
-					var randDirX = (Math.random()*2 -1) * this.speed;
-					var randDirY = (Math.random()*2 -1) * this.speed;
+					var randomDegrees = Math.random() * 30 - 60
+					var randomRadians = randomDegrees * Math.PI / 180;
+					var up_or_down = Math.random() < 0.5 ? -1 : 1;
+					var randomAngle = randomRadians * up_or_down;
+					var randDirX = this.speed * Math.cos(randomAngle);
+					var randDirY = this.speed * Math.sin(randomAngle);
 
 					this.velocity = [randDirX,randDirY,0];
 				}
 
 				OnStart()
 				{
-                    this.velocity = [0.001,0,0];
+                    //this.velocity = [0.001,0,0];
 				}
 				
 				Update()
