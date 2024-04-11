@@ -1,34 +1,29 @@
-from flask import Flask, request, jsonify, send_file
-import base64
-from PIL import Image
-from io import BytesIO
-import cv2 as cv
+import cv2
 import numpy as np
+import mss
 
-app = Flask(__name__)
+def capture_game():
+    with mss.mss() as sct:
+        # Set the region to capture (coordinates and size of the game window)
+        game_region = {'top': 200, 'left': 100, 'width': 800, 'height': 600}
 
-@app.route('/process-image', methods=['POST'])
-def process_image():
-    data = request.get_json()
-    image_data = data['image']
+        while True:
+            # Capture the screen within the specified region
+            screenshot = sct.grab(game_region)
+            # Convert the screenshot to a numpy array
+            img = np.array(screenshot)
+            # Convert the image from BGR to RGB (OpenCV uses BGR, but most other libraries use RGB)
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            
+            # Perform computer vision tasks here (e.g., object detection, image processing, etc.)
+            # For example, you can display the captured frame:
+            cv2.imshow('Game Capture', img_rgb)
 
-    # Convert base64 image data to numpy array
-    decoded_data = base64.b64decode(image_data.split(',')[1])
-    nparr = np.frombuffer(decoded_data, np.uint8)
-    image_np = cv.imdecode(nparr, cv.IMREAD_COLOR)
+            # Exit the loop if 'q' is pressed
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
-    # Example: Perform image recognition (replace with your actual image processing code)
-    # result = your_image_recognition_function(image_np)
+        cv2.destroyAllWindows()
 
-    # For demonstration, let's just return a simple response
-    result = "Image received and processed."
-
-    # Display the image
-    cv.imshow('Processed Image', image_np)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
-
-    return jsonify({'result': result})
-
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    capture_game()
