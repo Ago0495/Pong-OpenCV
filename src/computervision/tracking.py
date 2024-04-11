@@ -1,11 +1,26 @@
 import cv2
 import numpy as np
 import mss
+import json
+import os
 
 def capture_game():
     with mss.mss() as sct:
         # Set the region to capture (coordinates and size of the game window)
-        game_region = {'top': 190, 'left': 80, 'width': 800, 'height': 600}
+        # If GameRegion.json doesn't exist, use the template and refer the user to it
+        # Get current working directory
+        cwd = os.getcwd()
+        cwd = os.path.join(cwd, 'src/computervision/config')
+        config_file = os.path.join(cwd,'GameRegion.json')
+        if not os.path.exists(config_file):
+            print('Please create a GameRegion.json file in the config folder.')
+            print('You can use the config/GameRegionTemplate.json file as a reference.')
+            print('The template file will be used in the mean time, the canvas size may not be correct.')
+            config_file = os.path.join(cwd,'GameRegionTemplate.json')
+        with open(config_file) as f:
+            game_region_data = json.load(f)
+        
+        game_region = {'top': game_region_data['top'], 'left': game_region_data['left'], 'width': 800, 'height': 600}
 
         while True:
             # Capture the screen within the specified region
