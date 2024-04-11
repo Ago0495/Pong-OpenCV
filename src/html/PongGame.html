@@ -393,6 +393,8 @@
 				{
 					m.UpdateAll();
 					m.RenderAll();
+
+					captureBodyAsImage();
 					
 					requestAnimationFrame(main.MainLoop);
 				}
@@ -1191,6 +1193,28 @@
 				OnStart()
 				{
 				}
+			}
+
+			function captureBodyAsImage()
+			{
+				const imageData = canvas.toDataURL('image/jpeg');
+				sendImageToPython(imageData);
+			}
+
+			function sendImageToPython(imageData)
+			{
+				fetch('http://localhost:5000/process-image',
+				{
+					method: 'POST',
+					body: JSON.stringify({image: imageData}),
+					headers: 
+					{
+						'Content-Type': 'application/json'
+					}
+				})
+				.then(response => response.json())
+				.then(data => {console.log('Response from Server:', data)})
+				.catch(error => {console.error('Error', error)})
 			}
 
 	</script>
