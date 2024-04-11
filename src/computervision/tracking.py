@@ -5,7 +5,7 @@ import mss
 def capture_game():
     with mss.mss() as sct:
         # Set the region to capture (coordinates and size of the game window)
-        game_region = {'top': 200, 'left': 100, 'width': 800, 'height': 600}
+        game_region = {'top': 190, 'left': 80, 'width': 800, 'height': 600}
 
         while True:
             # Capture the screen within the specified region
