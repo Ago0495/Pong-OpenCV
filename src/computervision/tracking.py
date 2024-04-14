@@ -113,6 +113,10 @@ def verify_distance(point1, point2):
     x1, y1, _ = point1
     x2, y2, _ = point2
 
+    # Skip if the ball is already past the paddle
+    if x2>canvas_width-paddle_offset-paddle_width:
+        return None
+
     # Calculate distance between point1 and point2
     distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
