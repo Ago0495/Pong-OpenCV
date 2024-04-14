@@ -43,6 +43,8 @@ def capture_game():
 
             # Update the previous frame
             img_previous = img
+            cv2.imshow('img', img)
+            cv2.imshow('img_previous', img_previous)
             
             # Perform computer vision tasks here (e.g., object detection, image processing, etc.)
             # For example, you can display the captured frame:
