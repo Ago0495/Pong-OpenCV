@@ -43,8 +43,6 @@ def capture_game():
 
             # Update the previous frame
             img_previous = img
-            cv2.imshow('img', img)
-            cv2.imshow('img_previous', img_previous)
             
             # Perform computer vision tasks here (e.g., object detection, image processing, etc.)
             # For example, you can display the captured frame:
@@ -58,49 +56,63 @@ def capture_game():
 
 # Function to track ball movement
 def track_ball_movement(frame, prev_frame):
-    # Convert frames to grayscale for processing
+    # # Convert frames to grayscale for processing
     gray1 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     gray2 = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
 
-    # Calculate the absolute difference between the two frames
-    diff = cv2.absdiff(gray1, gray2)
+    # # Calculate the absolute difference between the two frames
+    # diff = cv2.absdiff(gray1, gray2)
 
-    # Apply a threshold to get a binary image
-    _, thresh = cv2.threshold(diff, 30, 255, cv2.THRESH_BINARY)
+    # # Apply a threshold to get a binary image
+    # _, thresh = cv2.threshold(diff, 30, 255, cv2.THRESH_BINARY)
 
-    # Find contours in the binary image
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # # Find contours in the binary image
+    # contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Initialize variables for storing ball positions
-    prev_center = None
-    curr_center = None
+    # # Initialize variables for storing ball positions
+    # prev_center = None
+    # curr_center = None
 
-    for contour in contours:
-        # Approximate the contour to a circle
-        (x, y), radius = cv2.minEnclosingCircle(contour)
-        center = (int(x), int(y))
+    # for contour in contours:
+    #     # Approximate the contour to a circle
+    #     (x, y), radius = cv2.minEnclosingCircle(contour)
+    #     center = (int(x), int(y))
 
-        # Filter out small contours (noise)
-        if radius > 10:
-            # Draw circle on the frame for visualization
-            cv2.circle(prev_frame, center, int(radius), (0, 255, 0), 2)
+    #     # Filter out small contours (noise)
+    #     if radius > 10:
+    #         # Draw circle on the frame for visualization
+    #         cv2.circle(prev_frame, center, int(radius), (0, 255, 0), 2)
 
-            # Store the current center
-            prev_center = curr_center
-            curr_center = center
+    #         # Store the current center
+    #         prev_center = curr_center
+#         curr_center = center
+    prev_circle = cv2.HoughCircles(gray2, cv2.HOUGH_GRADIENT,1,20, param1=50,param2=30,minRadius=0,maxRadius=20)
+    curr_circle = cv2.HoughCircles(gray1, cv2.HOUGH_GRADIENT,1,20, param1=50,param2=30,minRadius=0,maxRadius=20)
+    if prev_circle is not None and curr_circle is not None:
+
+        print("prev: ", prev_circle[0][0], " curr: ", curr_circle[0][0])
+
+        curr_circle = np.uint16(np.around(curr_circle))
+        for i in curr_circle[0,:]:
+            # draw the outer circle
+            cv2.circle(frame,(i[0],i[1]),i[2],(0,255,0),2)
+
+        predicted_point = predict_point(prev_circle[0][0], curr_circle[0][0])
+        if predicted_point is not None:
+            cv2.line(frame, (curr_circle[0][0][0],curr_circle[0][0][1]), predicted_point, (0, 0, 255), 2)
 
     # Draw a line connecting the previous and current positions
-    if prev_center is not None and curr_center is not None:
-        predicted_point = predict_point(prev_center, curr_center)
-        if predicted_point is not None:
-            cv2.line(prev_frame, curr_center, predicted_point, (0, 0, 255), 2)
+    # if prev_center is not None and curr_center is not None:
+    #     predicted_point = predict_point(prev_center, curr_center)
+    #     if predicted_point is not None:
+    #         cv2.line(prev_frame, curr_center, predicted_point, (0, 0, 255), 2)
 
-    return prev_frame
+    return frame
 
 # Function to predict the next point based on the previous two points, used to draw a connecting line that represents trajectory
 def predict_point(point1, point2, scale=30):
-    x1, y1 = point1
-    x2, y2 = point2
+    x1, y1, _ = point1
+    x2, y2, _ = point2
 
     # Calculate distance between point1 and point2
     distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
