@@ -5,6 +5,19 @@ import json
 import os
 import math
 
+#Global constants
+global canvas_width
+canvas_width = 800
+
+global canvas_height
+canvas_height = 600
+
+global paddle_offset
+paddle_offset = 73
+
+global paddle_width
+paddle_width = 8
+
 def capture_game():
     with mss.mss() as sct:
         # Set the region to capture (coordinates and size of the game window)
@@ -25,32 +38,45 @@ def capture_game():
         color = (255, 0, 0) #red color for the drawn lines
 
         img_previous = None #Previous frame is initially None
+        frames_to_skip = 10 #Number of frames to skip before starting to track the ball
+        frame_counter = 0 #Counter to keep track of frames
         while True:
             # Capture the screen within the specified region
             screenshot = sct.grab(game_region)
+
             # Convert the screenshot to a numpy array
             img = np.array(screenshot)
-            # Convert the image from BGR to RGB (OpenCV uses BGR, but most other libraries use RGB)
-            #img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
             # If the previous frame is not yet assigned (first frame), set it to the current frame and skip the rest of the loop
             if img_previous is None:
                 img_previous = img
                 continue
 
-            # Track ball movement
-            frame_tracked = track_ball_movement(img, img_previous)
+            # Track ball movement only if the frame is not skipped
+            skip_this_frame = frame_counter % (frames_to_skip + 1) != 0
+            if not skip_this_frame:
+                frame_tracked = track_ball_movement(img, img_previous)
+            else:
+                frame_tracked = img_previous
+
+            # Draw a dot in each of the 4 corners for reference
+            cv2.circle(frame_tracked, (0, 0), 5, color, -1)
+            cv2.circle(frame_tracked, (0, game_region['height']), 5, color, -1)
+            cv2.circle(frame_tracked, (game_region['width'], 0), 5, color, -1)
+            cv2.circle(frame_tracked, (game_region['width'], game_region['height']), 5, color, -1)
+                
+            cv2.imshow('Game Capture', frame_tracked)
 
             # Update the previous frame
-            img_previous = img
-            
-            # Perform computer vision tasks here (e.g., object detection, image processing, etc.)
-            # For example, you can display the captured frame:
-            cv2.imshow('Game Capture', frame_tracked)
+            if not skip_this_frame:
+                img_previous = img
 
             # Exit the loop if 'q' is pressed
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+
+            # Increment the frame counter
+            frame_counter += 1
 
         cv2.destroyAllWindows()
 
@@ -60,79 +86,71 @@ def track_ball_movement(frame, prev_frame):
     gray1 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     gray2 = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
 
-    # # Calculate the absolute difference between the two frames
-    # diff = cv2.absdiff(gray1, gray2)
+    prev_circle = cv2.HoughCircles(gray2, cv2.HOUGH_GRADIENT,1,20, param1=50,param2=30,minRadius=5,maxRadius=20)
+    curr_circle = cv2.HoughCircles(gray1, cv2.HOUGH_GRADIENT,1,20, param1=50,param2=30,minRadius=5,maxRadius=20)
+    
+    if prev_circle is None or curr_circle is None:
+        return frame
+    
+    # Grab just the first circle found from each
+    prev_circle = prev_circle[:1]
+    curr_circle = curr_circle[:1]
 
-    # # Apply a threshold to get a binary image
-    # _, thresh = cv2.threshold(diff, 30, 255, cv2.THRESH_BINARY)
+    curr_circle = np.uint16(np.around(curr_circle))
 
-    # # Find contours in the binary image
-    # contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    # # Initialize variables for storing ball positions
-    # prev_center = None
-    # curr_center = None
-
-    # for contour in contours:
-    #     # Approximate the contour to a circle
-    #     (x, y), radius = cv2.minEnclosingCircle(contour)
-    #     center = (int(x), int(y))
-
-    #     # Filter out small contours (noise)
-    #     if radius > 10:
-    #         # Draw circle on the frame for visualization
-    #         cv2.circle(prev_frame, center, int(radius), (0, 255, 0), 2)
-
-    #         # Store the current center
-    #         prev_center = curr_center
-#         curr_center = center
-    prev_circle = cv2.HoughCircles(gray2, cv2.HOUGH_GRADIENT,1,20, param1=50,param2=30,minRadius=0,maxRadius=20)
-    curr_circle = cv2.HoughCircles(gray1, cv2.HOUGH_GRADIENT,1,20, param1=50,param2=30,minRadius=0,maxRadius=20)
-    if prev_circle is not None and curr_circle is not None:
-
-        print("prev: ", prev_circle[0][0], " curr: ", curr_circle[0][0])
-
-        curr_circle = np.uint16(np.around(curr_circle))
-        for i in curr_circle[0,:]:
-            # draw the outer circle
-            cv2.circle(frame,(i[0],i[1]),i[2],(0,255,0),2)
-
-        predicted_point = predict_point(prev_circle[0][0], curr_circle[0][0])
-        if predicted_point is not None:
-            cv2.line(frame, (curr_circle[0][0][0],curr_circle[0][0][1]), predicted_point, (0, 0, 255), 2)
-
-    # Draw a line connecting the previous and current positions
-    # if prev_center is not None and curr_center is not None:
-    #     predicted_point = predict_point(prev_center, curr_center)
-    #     if predicted_point is not None:
-    #         cv2.line(prev_frame, curr_center, predicted_point, (0, 0, 255), 2)
+    # If ball is moving right, predict point to show where the ball will land
+    if curr_circle[0][0][0] > prev_circle[0][0][0]:
+        if verify_distance(prev_circle[0][0], curr_circle[0][0]) is not None:
+            slope = (curr_circle[0][0][1] - prev_circle[0][0][1]) / (curr_circle[0][0][0] - prev_circle[0][0][0])
+            new_x, new_y, slope = predict_trajectory(curr_circle[0][0][0], curr_circle[0][0][1], slope)
+            if new_x is not None:
+                cv2.circle(frame, (int(new_x), int(new_y)), 5, (0, 0, 255), 2)
 
     return frame
 
-# Function to predict the next point based on the previous two points, used to draw a connecting line that represents trajectory
-def predict_point(point1, point2, scale=30):
+distances = [] #List to store distances between consecutive points, used to skip outliers
+def verify_distance(point1, point2):
     x1, y1, _ = point1
     x2, y2, _ = point2
 
     # Calculate distance between point1 and point2
     distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
-    # Calculate unit vector components
-    if distance != 0:  # Avoid division by zero
-        ux = (x2 - x1) / distance
-        uy = (y2 - y1) / distance
-    else:
-        # If distance is zero, return the same point
+    # Skip outliers by keeping track of the last 5 distances
+    if len(distances) > 5:
+        distances.pop(0)
+
+    # If the distance is an outlier, return None
+    if len(distances) > 4 and distance > 1.5 * max(distances):
         return None
+    
+    distances.append(distance)
 
-    # Calculate new point coordinates
-    x_shift = scale * distance * ux
-    y_shift = scale * distance * uy
-    new_x = x1 + x_shift
-    new_y = y1 + y_shift
+    return distance
 
-    return (int(new_x), int(new_y))
+# Function to predict the linear trajectory of the ball
+# If the ball's slope points it to the bottom or top of the screen, invert the slope and set new point to the border, call self recursively
+# Until arriving at the right side of the screen, return the point
+right_bound = canvas_width-paddle_offset-paddle_width
+def predict_trajectory(x, y, slope):
+    # If F(width) is within 0 and the canvas height, return the final boundary point
+    new_x = right_bound
+    new_y = slope * (new_x-x) + y
+    if new_y > 0 and new_y < canvas_height:
+        return new_x, new_y, slope
 
+    # If F(width) is above the canvas height or below 0,
+    # invert the slope and set the new point to the boundary
+    elif new_y > canvas_height:
+        new_y = canvas_height
+        return predict_trajectory((new_y - y) / slope + x, new_y, -slope)
+    
+    # If F(width) is below 0
+    elif new_y < 0:
+        new_y = 0
+        return predict_trajectory((new_y - y) / slope + x, new_y, -slope)
+
+    return None, None, None #ball is not moving right
 
 if __name__ == "__main__":
     capture_game()
