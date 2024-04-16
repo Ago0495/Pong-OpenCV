@@ -68,7 +68,7 @@ def capture_game():
             skip_this_frame = frame_counter % (frames_to_skip + 1) != 0
             if not skip_this_frame:
                 frame_tracked = track_ball_movement(img, img_previous) #track ball movement from previous frame to current frame
-                frame_tracked, paddle_x, paddle_y = track_paddle(frame_tracked) #track paddle's current location
+                #frame_tracked, paddle_x, paddle_y = track_paddle(frame_tracked) #track paddle's current location
 
                 
             else:
@@ -151,6 +151,8 @@ def track_ball_movement(curr_frame, prev_curr_frame):
 
             # Draw the circle around the ball
             cv2.circle(curr_frame,(curr_circle[0][0][0],curr_circle[0][0][1]),10,(0,255,0),2)
+            
+            track_paddle(curr_frame)
 
             # Draw the predicted point
             if new_x is not None:
