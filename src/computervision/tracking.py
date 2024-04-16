@@ -18,6 +18,9 @@ paddle_offset = 73
 global paddle_width
 paddle_width = 8
 
+global ball_radius
+ball_radius = 10
+
 def capture_game():
     with mss.mss() as sct:
         # Set the region to capture (coordinates and size of the game window)
@@ -107,6 +110,11 @@ def track_ball_movement(frame, prev_frame):
             
             # Track the average trajectory of every frame before the last bounce
             trajectory = (curr_circle[0][0][0], curr_circle[0][0][1], slope)
+
+            # If the new trajectory has a slope of opposite direction to the previous trajectory, clear the trajectories
+            if len(trajectories) > 0 and trajectories[-1][2] * slope < 0:
+                trajectories.clear()
+
             trajectories.append(trajectory)
 
             # Calculate the average trajectory
@@ -116,6 +124,9 @@ def track_ball_movement(frame, prev_frame):
 
             # Recursively call the function to predict the trajectory after it hits the right boundary
             new_x, new_y, slope = predict_trajectory(trajectory[0], trajectory[1], trajectory[2])
+
+            # Draw the circle around the ball
+            cv2.circle(frame,(curr_circle[0][0][0],curr_circle[0][0][1]),10,(0,255,0),2)
 
             # Draw the predicted point
             if new_x is not None:
@@ -146,28 +157,26 @@ def verify_distance(point1, point2):
     if len(distances) >= distances_size_cap:
         distances.pop(0)
 
-    # If the distance is an outlier
-    if len(distances) > distances_size_cap and distance > 1.5 * max(distances):
-        # clear trajectories to prevent the average from being skewed
-        trajectories.clear()
-        return False
+    # # If the distance is an outlier
+    # if len(distances) > distances_size_cap and distance > 1.5 * max(distances):
+    #     # clear trajectories to prevent the average from being skewed
+    #     trajectories.clear()
+    #     return False
     
-    else:
-        distances.append(distance)
-        return True
+    
+    distances.append(distance)
+    return True
 
 # Function to predict the linear trajectory of the ball
 # If the ball's slope points it to the bottom or top of the screen, invert the slope and set new point to the border, call self recursively
 # Until arriving at the right side of the screen, return the point
 right_bound = canvas_width-paddle_offset-paddle_width
-def predict_trajectory(x, y, slope, clear_trajectories=False):
-    if clear_trajectories:
-        trajectories.clear()  # Clear trajectories when bounce detected
-
+canvas_height -= ball_radius
+def predict_trajectory(x, y, slope):
     # If F(width) is within 0 and the canvas height, return the final boundary point
     new_x = right_bound
     new_y = slope * (new_x-x) + y
-    if new_y > 0 and new_y < canvas_height:
+    if new_y > ball_radius and new_y < canvas_height:
         return new_x, new_y, slope
 
     # If F(width) is above the canvas height or below 0,
@@ -175,13 +184,13 @@ def predict_trajectory(x, y, slope, clear_trajectories=False):
     elif new_y > canvas_height:
         new_y = canvas_height
         #bounces
-        return predict_trajectory((new_y - y) / slope + x, new_y, -slope, True)  # Pass clear_trajectories=True
+        return predict_trajectory((new_y - y) / slope + x, new_y, -slope)  # Pass clear_trajectories=True
     
     # If F(width) is below 0
-    elif new_y < 0:
-        new_y = 0
+    elif new_y < ball_radius:
+        new_y = ball_radius
         #bounces
-        return predict_trajectory((new_y - y) / slope + x, new_y, -slope, True)  # Pass clear_trajectories=True
+        return predict_trajectory((new_y - y) / slope + x, new_y, -slope)  # Pass clear_trajectories=True
 
     # ball is not moving right
     trajectories.clear() # Clear trajectories if the ball is not moving right
