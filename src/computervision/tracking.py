@@ -195,7 +195,7 @@ def track_paddle(curr_frame):
 
     # If no contours are found, return the current frame without a paddle tracked
     if len(contours) == 0:
-        return curr_frame
+        return curr_frame, None, None
 
     # Print the contour area for debugging
     print(cv2.contourArea(contours[0]))
