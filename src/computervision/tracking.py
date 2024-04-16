@@ -67,10 +67,20 @@ def capture_game():
             # Track ball movement only if the frame is not skipped
             skip_this_frame = frame_counter % (frames_to_skip + 1) != 0
             if not skip_this_frame:
-                frame_tracked = track_ball_movement(img, img_previous) #track ball movement from previous frame to current frame
-                #frame_tracked, paddle_x, paddle_y = track_paddle(frame_tracked) #track paddle's current location
+                # Track paddle's current location
+                paddle_x, paddle_y, paddle_w, paddle_h = track_paddle(img) #track paddle's current location
 
+                frame_tracked = track_ball_movement(img, img_previous) #track ball movement from previous frame to current frame
                 
+                # Draw rectangle around the paddle
+                padding = 2 #Extra padding around the paddle used to account for rounding errors
+
+                if paddle_x is not None and paddle_y is not None:
+                    cv2.rectangle(frame_tracked, (paddle_x - paddle_w//2 - padding, 
+                                                  paddle_y - paddle_h//2 - padding), 
+                                                 (paddle_x + paddle_w//2 + padding, 
+                                                  paddle_y + paddle_h//2 + padding), 
+                                                  color, 2)
             else:
                 frame_tracked = img_previous
 
@@ -151,8 +161,6 @@ def track_ball_movement(curr_frame, prev_curr_frame):
 
             # Draw the circle around the ball
             cv2.circle(curr_frame,(curr_circle[0][0][0],curr_circle[0][0][1]),10,(0,255,0),2)
-            
-            track_paddle(curr_frame)
 
             # Draw the predicted point
             if new_x is not None:
@@ -197,10 +205,10 @@ def track_paddle(curr_frame):
 
     # If no contours are found, return the current frame without a paddle tracked
     if len(contours) == 0:
-        return curr_frame, None, None
+        return None, None, None, None
 
     # Print the contour area for debugging
-    print(cv2.contourArea(contours[0]))
+    #print(cv2.contourArea(contours[0]))
 
     # If paddle contour is found, track its position
     if paddle_contour is not None:
@@ -211,18 +219,18 @@ def track_paddle(curr_frame):
         # Calculate paddle center
         paddle_center_x = x + w // 2 
         paddle_center_y = y + h // 2
-        padding = 2 #Extra padding around the paddle for display purposes
+        #padding = 2 #Extra padding around the paddle for display purposes
 
         # Draw a rectangle around the paddle
-        cv2.rectangle(curr_frame, (x - padding, y - padding), (x + w + padding, y + h + padding), (255, 255, 0), 2)
+        #cv2.rectangle(curr_frame, (x - padding, y - padding), (x + w + padding, y + h + padding), (255, 255, 0), 2)
 
         # Display the paddle center (optional)
-        cv2.circle(curr_frame, (paddle_center_x, paddle_center_y), 5, (255, 0, 0), -1)
+        #cv2.circle(curr_frame, (paddle_center_x, paddle_center_y), 5, (255, 0, 0), -1)
 
-        # Return paddle center coordinates
-        return curr_frame, paddle_center_x, paddle_center_y
+        # Return paddle dimensions
+        return paddle_center_x, paddle_center_y, w, h
 
-    return curr_frame, None, None
+    return None, None, None, None
 
 
 # Function to predict the linear trajectory of the ball
