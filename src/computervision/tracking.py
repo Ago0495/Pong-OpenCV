@@ -34,6 +34,9 @@ global green; green = (0, 255, 0)
 global red; red = (0, 0, 255)
 global aqua; aqua = (255, 255, 0)
 
+global i_key_down; i_key_down = False
+global k_key_down; k_key_down = False
+
 # Settings
 # Number of frames to skip before starting to track the ball again, 
 # frame rate of the display/tracker will be 1/(frames_to_skip+1)
@@ -50,9 +53,13 @@ start_time = time.time()
 permit_key_presses = False
 time_pressed_last = time.time() - 2 #Time the 'p' key was last pressed, initially set to 2 seconds ago to allow key presses
 
+global prev_x_diff; prev_x_diff = None #Difference in x between the current and previous frame
+
 def capture_game():
     global permit_key_presses #Allow key presses to be sent to the game
     global time_pressed_last #Time the 'p' key was last pressed
+    global i_key_down #Is the 'i' key currently being pressed
+    global k_key_down #Is the 'k' key currently being pressed
 
     with mss.mss() as sct:
         # Set the region to capture (coordinates and size of the game window)
@@ -92,6 +99,10 @@ def capture_game():
             # If 'q' is pressed even outside of the capture window, terminate the program
             if keyboard.is_pressed('q'):
                 print("'q' was pressed, terminating program.")
+                pyautogui.keyUp('i')
+                pyautogui.keyUp('k')
+                pyautogui.keyUp('p')
+                pyautogui.keyUp('q')
                 exit()
                 
 
@@ -129,39 +140,51 @@ def capture_game():
                     if predicted_x is not None and paddle_x is not None:
                         # Calculate the vertical distance between the paddle and the predicted point
                         distance = round(predicted_y - paddle_y)
-                        nearness_threshold = paddle_height//3 # Paddle will stop moving when this many pixels away from the predicted point
+                        nearness_threshold = paddle_height//2 # Paddle will stop moving when this many pixels away from the predicted point
 
                         # If the distance is greater than 15 pixels, move the paddle to the predicted point
                         if abs(distance)>nearness_threshold:
                             if distance>0:   # Need to move up
-                                pyautogui.keyUp('i')            # Stop moving up
-                                if not keyboard.is_pressed('k'):
+                                if i_key_down:
+                                    pyautogui.keyUp('i')            # Stop moving up
+                                    i_key_down = False
+                                if not k_key_down:
                                     pyautogui.keyDown('k')      # Start moving down
-                                    #print(f"Now moving paddle DOWN {distance}")
+                                    k_key_down = True
+                                #print(f"Now moving paddle DOWN {distance}")
                             elif distance<0: # Need to move down
-                                pyautogui.keyUp('k')            # Stop moving down
-                                if not keyboard.is_pressed('i'):
+                                if k_key_down:
+                                    pyautogui.keyUp('k')            # Stop moving down
+                                    k_key_down = False
+                                if not i_key_down:
                                     pyautogui.keyDown('i')      # Start moving up
+                                    i_key_down = True
                                     #print(f"Now moving paddle UP {distance}")
                             else: # Reached destination
-                                if keyboard.is_pressed('k'):
+                                if k_key_down:
                                     pyautogui.keyUp('k')    # Stop moving down
-                                if keyboard.is_pressed('i'):
+                                    k_key_down = False
+                                if i_key_down:
                                     pyautogui.keyUp('i')    # Stop moving up
+                                    i_key_down = False
                                 #print("Paddle STOPPED")
                         else:
                             # If the paddle is within the nearness threshold, stop moving the paddle
-                            if keyboard.is_pressed('k'):
+                            if k_key_down:
                                 pyautogui.keyUp('k')    # Stop moving down
-                            if keyboard.is_pressed('i'):
+                                k_key_down = False
+                            if i_key_down:
                                 pyautogui.keyUp('i')    # Stop moving up
+                                i_key_down = False
 
                     else:
                         # If it was determined to not track the ball, immedietely stop sending key inputs
-                        if keyboard.is_pressed('k'):
+                        if k_key_down:
                             pyautogui.keyUp('k')    # Stop moving down
-                        if keyboard.is_pressed('i'):
+                            k_key_down = False
+                        if i_key_down:
                             pyautogui.keyUp('i')    # Stop moving up
+                            i_key_down = False
 
 
             else:
@@ -181,6 +204,10 @@ def capture_game():
             # Exit the loop if 'q' is pressed
             # Program should already terminate if q is pressed regardless of the active window, this is a safety check
             if cv2.waitKey(1) & 0xFF == ord('q'): 
+                pyautogui.keyUp('i')
+                pyautogui.keyUp('k')
+                pyautogui.keyUp('p')
+                pyautogui.keyUp('q')
                 break
 
             # Increment the frame counter
@@ -205,6 +232,8 @@ def hough_circles(frame):
 # Parameters are current and previous frame
 # Returns the current frame with the ball tracked and the coordinates of the final destination
 def track_ball_movement(curr_frame, prev_frame):
+    global prev_x_diff
+
     # Use HoughCircles to detect the ball in the current and previous frame
     prev_circle = hough_circles(prev_frame)
     curr_circle = hough_circles(curr_frame)
@@ -225,24 +254,41 @@ def track_ball_movement(curr_frame, prev_frame):
     curr_circle = np.uint16(np.around(curr_circle))
 
     # Draw the circle around the ball
-    cv2.circle(curr_frame, (curr_circle[0][0][0], curr_circle[0][0][1]), 10 , green,2)
+    cv2.circle(curr_frame, (curr_circle[0][0][0], curr_circle[0][0][1]), 10, green,2)
+
+    # If the ball changes its horizontal direction, clear the trajectories as it bounces off of a paddle
+    curr_x_diff = curr_circle[0][0][0] - prev_circle[0][0][0]
+    if prev_x_diff is not None:
+        if curr_x_diff * prev_x_diff < 0: #negative means they are in opposite directions
+            #print(f"Ball changes horizontal direction {curr_x_diff} {prev_x_diff}")
+            trajectories.clear()
+
+    prev_x_diff = curr_x_diff
 
     # If ball is moving right, predict point to show where the ball will land
     if curr_circle[0][0][0] > prev_circle[0][0][0]:
 
-        # Clear the trajectories if the ball is past the right paddle
-        if prev_circle[0][0][0] > canvas_width-paddle_offset-paddle_width:
+        # Clear the trajectories if the ball is past the right paddle or left paddle, dying to DEATH
+        if prev_circle[0][0][0] > canvas_width-paddle_offset-paddle_width or prev_circle[0][0][0] < 0+paddle_offset+paddle_width:
             trajectories.clear()
         else:
             # Calculate slope of the ball's trajectory
             slope = (curr_circle[0][0][1] - prev_circle[0][0][1]) / (curr_circle[0][0][0] - prev_circle[0][0][0])
-            
+
             # Track the average trajectory of every curr_frame before the last bounce
             trajectory = (curr_circle[0][0][0], curr_circle[0][0][1], slope)
 
-            # If the new trajectory has a slope of opposite direction to the previous trajectory, clear the trajectories
-            if len(trajectories) > 0 and trajectories[-1][2] * slope < 0:
-                trajectories.clear()
+            # If the new trajectory has a slope of opposite direction to the previous trajectory, swap direction of all previous trajectories
+            # Must also be near the top or bottom of the screen to prevent false positives
+            wall_nearness_thresh = 40
+            if len(trajectories) > 0 and (
+                abs(curr_circle[0][0][1] - canvas_height) < wall_nearness_thresh 
+                or abs(curr_circle[0][0][1] - 0) < wall_nearness_thresh 
+                ) and trajectories[-1][2] * slope < 0:
+                # Invert the slope of all previous trajectories
+                for i in range(len(trajectories)):
+                    trajectories[i] = (trajectories[i][0], trajectories[i][1], -trajectories[i][2])
+                    
             trajectories.append(trajectory)
 
             # Calculate the average trajectory
@@ -280,7 +326,7 @@ def track_paddle(curr_frame):
 
     # Filter out contours that are too small
     min_contour_area = 50
-    max_contour_area = 250
+    max_contour_area = 350
     min_aspect_ratio = 1.5 #Ratio of height to width such that the ball isn't detected as a paddle
     # Can't be too harsh as the paddle can go half off-screen where the aspect ratio will be skewed
 
@@ -344,4 +390,12 @@ def predict_trajectory(x, y, slope):
 
 
 if __name__ == "__main__":
+    # Release all keys
+    pyautogui.keyUp('i')
+    pyautogui.keyUp('k')
+    pyautogui.keyUp('p')
+    pyautogui.keyUp('q')
+
     capture_game()
+
+

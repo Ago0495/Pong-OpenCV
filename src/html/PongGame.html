@@ -751,14 +751,14 @@
 					{
 						for(var i =0; i < 3; i ++)
 						{
-							this.velocity[i] += tempF[i]*.01; 
+							this.velocity[i] += tempF[i]*.02; 
 						}
 					}
 					if("S" in m.Keys && m.Keys["S"])
 					{
 						for(var i =0; i < 3; i ++)
 						{
-							this.velocity[i] -= tempF[i]*.01; 
+							this.velocity[i] -= tempF[i]*.02; 
 						}
 					}
 					this.Move();
@@ -844,14 +844,14 @@
 					{
 						for(var i =0; i < 3; i ++)
 						{
-							this.velocity[i] += tempF[i]*.01; 
+							this.velocity[i] += tempF[i]*.02; 
 						}
 					}
 					if("K" in m.Keys && m.Keys["K"])
 					{
 						for(var i =0; i < 3; i ++)
 						{
-							this.velocity[i] -= tempF[i]*.01; 
+							this.velocity[i] -= tempF[i]*.02; 
 						}
 					}
 					this.Move();
@@ -873,7 +873,7 @@
 					this.scale = [0.5,0.5,0.5];
 					this.buffer=gl.createBuffer();
 
-					this.speed = 0.0025;
+					this.speed = 0.0150;
 
 					var randomDegrees = Math.random() * 30 - 60
 					var randomRadians = randomDegrees * Math.PI / 180;
