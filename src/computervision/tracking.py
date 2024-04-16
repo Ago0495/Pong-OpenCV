@@ -6,21 +6,15 @@ import os
 import math
 
 #Global constants
-global canvas_width
-canvas_width = 800
 
-global canvas_height
-canvas_height = 600
+# Canvas dimensions
+global canvas_width; canvas_width = 800
+global canvas_height; canvas_height = 600
+global paddle_offset; paddle_offset = 73
+global paddle_width; paddle_width = 8
+global ball_radius; ball_radius = 10
 
-global paddle_offset
-paddle_offset = 73
-
-global paddle_width
-paddle_width = 8
-
-global ball_radius
-ball_radius = 10
-
+# Collision bounds
 # Right boundary of the canvas
 right_bound = canvas_width-paddle_offset-paddle_width
 # Upper boundary of the canvas
@@ -28,7 +22,14 @@ upper_bound = canvas_height - ball_radius
 # Lower boundary of the canvas
 lower_bound = 0+ball_radius
 
-trajectories = [] #Store past trajectories to calculate the average until the next bounce
+#Store past trajectories to calculate the average until the next bounce
+trajectories = [] 
+
+# Define some frequently used colors
+global blue; blue = (255, 0, 0)
+global green; green = (0, 255, 0)
+global red; red = (0, 0, 255)
+global aqua; aqua = (255, 255, 0)
 
 def capture_game():
     with mss.mss() as sct:
@@ -47,7 +48,6 @@ def capture_game():
             game_region_data = json.load(f)
         
         game_region = {'top': game_region_data['top'], 'left': game_region_data['left'], 'width': 800, 'height': 600}
-        color = (255, 0, 0) #red color for the drawn lines
 
         img_previous = None #Previous frame is initially None
         frames_to_skip = 10 #Number of frames to skip before starting to track the ball
@@ -70,23 +70,20 @@ def capture_game():
                 # Track paddle's current location
                 paddle_x, paddle_y, paddle_w, paddle_h = track_paddle(img) #track paddle's current location
 
+                # Track ball movement
                 frame_tracked = track_ball_movement(img, img_previous) #track ball movement from previous frame to current frame
                 
                 # Draw rectangle around the paddle
                 padding = 2 #Extra padding around the paddle used to account for rounding errors
-
                 if paddle_x is not None and paddle_y is not None:
                     cv2.rectangle(frame_tracked, (paddle_x - paddle_w//2 - padding, 
                                                   paddle_y - paddle_h//2 - padding), 
                                                  (paddle_x + paddle_w//2 + padding, 
                                                   paddle_y + paddle_h//2 + padding), 
-                                                  color, 2)
+                                                  aqua, 2)
             else:
                 frame_tracked = img_previous
 
-            
-            
-                
             cv2.imshow('Game Capture', frame_tracked)
 
             # Update the previous frame
@@ -132,6 +129,9 @@ def track_ball_movement(curr_frame, prev_curr_frame):
     # Convert the circles to integer values
     curr_circle = np.uint16(np.around(curr_circle))
 
+    # Draw the circle around the ball
+    cv2.circle(curr_frame, (curr_circle[0][0][0], curr_circle[0][0][1]), 10 , green,2)
+
     # If ball is moving right, predict point to show where the ball will land
     if curr_circle[0][0][0] > prev_circle[0][0][0]:
 
@@ -148,7 +148,6 @@ def track_ball_movement(curr_frame, prev_curr_frame):
             # If the new trajectory has a slope of opposite direction to the previous trajectory, clear the trajectories
             if len(trajectories) > 0 and trajectories[-1][2] * slope < 0:
                 trajectories.clear()
-
             trajectories.append(trajectory)
 
             # Calculate the average trajectory
@@ -159,12 +158,9 @@ def track_ball_movement(curr_frame, prev_curr_frame):
             # Recursively call the function to predict the trajectory after it hits the right boundary
             new_x, new_y, slope = predict_trajectory(trajectory[0], trajectory[1], trajectory[2])
 
-            # Draw the circle around the ball
-            cv2.circle(curr_frame,(curr_circle[0][0][0],curr_circle[0][0][1]),10,(0,255,0),2)
-
             # Draw the predicted point
             if new_x is not None:
-                cv2.circle(curr_frame, (int(new_x), int(new_y)), 5, (0, 0, 255), 2)
+                cv2.circle(curr_frame, (int(new_x), int(new_y)), 5, red, 2)
     return curr_frame
 
 # Tracking the current location of the paddle, but not the movement
@@ -219,13 +215,6 @@ def track_paddle(curr_frame):
         # Calculate paddle center
         paddle_center_x = x + w // 2 
         paddle_center_y = y + h // 2
-        #padding = 2 #Extra padding around the paddle for display purposes
-
-        # Draw a rectangle around the paddle
-        #cv2.rectangle(curr_frame, (x - padding, y - padding), (x + w + padding, y + h + padding), (255, 255, 0), 2)
-
-        # Display the paddle center (optional)
-        #cv2.circle(curr_frame, (paddle_center_x, paddle_center_y), 5, (255, 0, 0), -1)
 
         # Return paddle dimensions
         return paddle_center_x, paddle_center_y, w, h
