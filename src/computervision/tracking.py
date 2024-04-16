@@ -3,15 +3,18 @@ import numpy as np
 import mss
 import json
 import os
-import math
+import pyautogui
+import time
+import keyboard
 
-#Global constants
+# Global constants
 
 # Canvas dimensions
 global canvas_width; canvas_width = 800
 global canvas_height; canvas_height = 600
 global paddle_offset; paddle_offset = 73
 global paddle_width; paddle_width = 8
+global paddle_height; paddle_height = 60
 global ball_radius; ball_radius = 10
 
 # Collision bounds
@@ -31,7 +34,26 @@ global green; green = (0, 255, 0)
 global red; red = (0, 0, 255)
 global aqua; aqua = (255, 255, 0)
 
+# Settings
+# Number of frames to skip before starting to track the ball again, 
+# frame rate of the display/tracker will be 1/(frames_to_skip+1)
+# I.e. 4 frames to skip will result in a frame rate of 1/5th of the actual frame rate
+# Lower frames_to_skip is more performance heavy. Being less than 5 may cause some innaccuracy in tracking as tracking fractional pixels leads to inaccurate readings
+# Higher frames_to_skip will result in a more accurate tracking but will be slower to react
+frames_to_skip = 5
+# Time in minutes before the program terminates itself to prevent accidental key presses while AFK
+max_program_time_minutes = 5
+
+# Time the program was ran
+start_time = time.time()
+
+permit_key_presses = False
+time_pressed_last = time.time() - 2 #Time the 'p' key was last pressed, initially set to 2 seconds ago to allow key presses
+
 def capture_game():
+    global permit_key_presses #Allow key presses to be sent to the game
+    global time_pressed_last #Time the 'p' key was last pressed
+
     with mss.mss() as sct:
         # Set the region to capture (coordinates and size of the game window)
         # If GameRegion.json doesn't exist, use the template and refer the user to it
@@ -50,9 +72,29 @@ def capture_game():
         game_region = {'top': game_region_data['top'], 'left': game_region_data['left'], 'width': 800, 'height': 600}
 
         img_previous = None #Previous frame is initially None
-        frames_to_skip = 10 #Number of frames to skip before starting to track the ball
         frame_counter = 0 #Counter to keep track of frames
+        
+        # Main loop
         while True:
+            # If 'p' is pressed, permit keybinds to be sent
+            if keyboard.is_pressed('p'):
+                # If the key was pressed last at least 2 seconds ago, toggle the key presses
+                if time.time() - time_pressed_last > 2:
+                    print('p was pressed')
+                    # if the key was pressed for less than 1 second, toggle the key presses
+                    permit_key_presses = not permit_key_presses
+                    time_pressed_last = time.time()
+                    if permit_key_presses:
+                        print("Key presses enabled.")
+                    else:
+                        print("Key presses disabled.")
+            
+            # If 'q' is pressed even outside of the capture window, terminate the program
+            if keyboard.is_pressed('q'):
+                print("'q' was pressed, terminating program.")
+                exit()
+                
+
             # Capture the screen within the specified region
             screenshot = sct.grab(game_region)
 
@@ -71,18 +113,53 @@ def capture_game():
                 paddle_x, paddle_y, paddle_w, paddle_h = track_paddle(img) #track paddle's current location
 
                 # Track ball movement
-                frame_tracked = track_ball_movement(img, img_previous) #track ball movement from previous frame to current frame
+                predicted_x, predicted_y, frame_tracked = track_ball_movement(img, img_previous) #track ball movement from previous frame to current frame
                 
                 # Draw rectangle around the paddle
                 padding = 2 #Extra padding around the paddle used to account for rounding errors
                 if paddle_x is not None and paddle_y is not None:
-                    cv2.rectangle(frame_tracked, (paddle_x - paddle_w//2 - padding, 
-                                                  paddle_y - paddle_h//2 - padding), 
-                                                 (paddle_x + paddle_w//2 + padding, 
-                                                  paddle_y + paddle_h//2 + padding), 
+                    cv2.rectangle(frame_tracked, (paddle_x - paddle_w//2 - padding,  #top left x
+                                                  paddle_y - paddle_h//2 - padding), #top left y
+                                                 (paddle_x + paddle_w//2 + padding,  #bottom right x
+                                                  paddle_y + paddle_h//2 + padding), #bottom right y
                                                   aqua, 2)
+                    
+                # Move the paddle to the predicted point
+                if permit_key_presses: 
+                    if predicted_x is not None and paddle_x is not None:
+                        # Calculate the vertical distance between the paddle and the predicted point
+                        distance = round(predicted_y - paddle_y)
+                        nearness_threshold = paddle_height//3 # Paddle will stop moving when this many pixels away from the predicted point
+
+                        # If the distance is greater than 15 pixels, move the paddle to the predicted point
+                        if distance>0 and distance > nearness_threshold:   # Need to move up
+                            pyautogui.keyUp('i')            # Stop moving up
+                            if not keyboard.is_pressed('k'):
+                                pyautogui.keyDown('k')      # Start moving down
+                                print(f"Now moving paddle DOWN {distance}")
+                        elif distance<0 and distance < -nearness_threshold: # Need to move down
+                            pyautogui.keyUp('k')            # Stop moving down
+                            if not keyboard.is_pressed('i'):
+                                pyautogui.keyDown('i')      # Start moving up
+                                print(f"Now moving paddle UP {distance}")
+                        else: # Reached destination
+                            pyautogui.keyUp('k')    # Stop moving down
+                            pyautogui.keyUp('i')    # Stop moving up
+                            print("Paddle STOPPED")
+
+                    else:
+                        # If it was determined to not track the ball, immedietely stop sending key inputs
+                        pyautogui.keyUp('k')    # Stop moving down
+                        pyautogui.keyUp('i')    # Stop moving up
+
+
             else:
-                frame_tracked = img_previous
+                frame_tracked = img_previous #Show previous frame
+
+            # If the program has been running for more than max_program_time_minutes minutes, terminate the program to prevent accidental key presses while AFK
+            if time.time() - start_time > 60*max_program_time_minutes: #5 minutes
+                print(f"Program has been running for more than {max_program_time_minutes} minutes. Terminating program to prevent accidental key presses.")
+                exit()
 
             cv2.imshow('Game Capture', frame_tracked)
 
@@ -91,7 +168,8 @@ def capture_game():
                 img_previous = img
 
             # Exit the loop if 'q' is pressed
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            # Program should already terminate if q is pressed regardless of the active window, this is a safety check
+            if cv2.waitKey(1) & 0xFF == ord('q'): 
                 break
 
             # Increment the frame counter
@@ -113,14 +191,20 @@ def hough_circles(frame):
     return circles
 
 # Track the movement of the ball
-def track_ball_movement(curr_frame, prev_curr_frame):
+# Parameters are current and previous frame
+# Returns the current frame with the ball tracked and the coordinates of the final destination
+def track_ball_movement(curr_frame, prev_frame):
     # Use HoughCircles to detect the ball in the current and previous frame
-    prev_circle = hough_circles(prev_curr_frame)
+    prev_circle = hough_circles(prev_frame)
     curr_circle = hough_circles(curr_frame)
+
+    # If trajectory should not be predicted, return None coordinates
+    new_x = None
+    new_y = None
     
     # If no circles are detected in either frame, return the current frame without a circle drawn
     if prev_circle is None or curr_circle is None:
-        return curr_frame
+        return new_x, new_y, curr_frame
     
     # Grab just the first circle found from each
     prev_circle = prev_circle[:1]
@@ -161,7 +245,8 @@ def track_ball_movement(curr_frame, prev_curr_frame):
             # Draw the predicted point
             if new_x is not None:
                 cv2.circle(curr_frame, (int(new_x), int(new_y)), 5, red, 2)
-    return curr_frame
+
+    return new_x, new_y, curr_frame
 
 # Tracking the current location of the paddle, but not the movement
 def track_paddle(curr_frame):

@@ -1,2 +1,4 @@
-pip install mss
-pip install opencv-python
+pip install mss #taking screenshots
+pip install opencv-python #image processing
+pip install pyautogui #sending keyboard presses
+pip install keyboard #reading keyboard presses
