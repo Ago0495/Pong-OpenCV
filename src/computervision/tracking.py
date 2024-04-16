@@ -50,24 +50,6 @@ start_time = time.time()
 permit_key_presses = False
 time_pressed_last = time.time() - 2 #Time the 'p' key was last pressed, initially set to 2 seconds ago to allow key presses
 
-def stop_moving_paddle():
-    print("STOPPING PADDLE MOVEMENT")
-    if keyboard.is_pressed('k'):
-        print("k UP")
-        pyautogui.keyUp('k')    # Stop moving down
-    if keyboard.is_pressed('i'):
-        print("i UP")
-        pyautogui.keyUp('i')    # Stop moving up
-
-def update_paddle_movement(primary_key, secondary_key):
-    print(f"UPDATING PADDLE MOVEMENT: {primary_key} {secondary_key}")
-    if not keyboard.is_pressed(primary_key): #if key is not pressed, press it
-        print(f"{primary_key} DOWN")
-        pyautogui.keyDown(primary_key)
-    if keyboard.is_pressed(secondary_key): #if other key is pressed, unpress it
-        print(f"{secondary_key} UP")
-        pyautogui.keyUp(secondary_key)
-
 def capture_game():
     global permit_key_presses #Allow key presses to be sent to the game
     global time_pressed_last #Time the 'p' key was last pressed
@@ -143,20 +125,43 @@ def capture_game():
                                                   aqua, 2)
                     
                 # Move the paddle to the predicted point
-                if predicted_x is not None and paddle_x is not None and permit_key_presses:
-                    distance = round(predicted_y - paddle_y)
-                    nearness_threshold = paddle_height // 3
+                if permit_key_presses: 
+                    if predicted_x is not None and paddle_x is not None:
+                        # Calculate the vertical distance between the paddle and the predicted point
+                        distance = round(predicted_y - paddle_y)
+                        nearness_threshold = paddle_height//3 # Paddle will stop moving when this many pixels away from the predicted point
 
-                    if abs(distance) > nearness_threshold:
-                        if distance > 0:
-                            update_paddle_movement('k', 'i')
-                        elif distance < 0:
-                            update_paddle_movement('i', 'k')
+                        # If the distance is greater than 15 pixels, move the paddle to the predicted point
+                        if abs(distance)>nearness_threshold:
+                            if distance>0:   # Need to move up
+                                pyautogui.keyUp('i')            # Stop moving up
+                                if not keyboard.is_pressed('k'):
+                                    pyautogui.keyDown('k')      # Start moving down
+                                    #print(f"Now moving paddle DOWN {distance}")
+                            elif distance<0: # Need to move down
+                                pyautogui.keyUp('k')            # Stop moving down
+                                if not keyboard.is_pressed('i'):
+                                    pyautogui.keyDown('i')      # Start moving up
+                                    #print(f"Now moving paddle UP {distance}")
+                            else: # Reached destination
+                                if keyboard.is_pressed('k'):
+                                    pyautogui.keyUp('k')    # Stop moving down
+                                if keyboard.is_pressed('i'):
+                                    pyautogui.keyUp('i')    # Stop moving up
+                                #print("Paddle STOPPED")
                         else:
-                            stop_moving_paddle()
+                            # If the paddle is within the nearness threshold, stop moving the paddle
+                            if keyboard.is_pressed('k'):
+                                pyautogui.keyUp('k')    # Stop moving down
+                            if keyboard.is_pressed('i'):
+                                pyautogui.keyUp('i')    # Stop moving up
+
                     else:
-                        stop_moving_paddle()
-                
+                        # If it was determined to not track the ball, immedietely stop sending key inputs
+                        if keyboard.is_pressed('k'):
+                            pyautogui.keyUp('k')    # Stop moving down
+                        if keyboard.is_pressed('i'):
+                            pyautogui.keyUp('i')    # Stop moving up
 
 
             else:
