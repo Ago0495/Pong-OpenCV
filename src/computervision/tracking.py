@@ -67,7 +67,10 @@ def capture_game():
             # Track ball movement only if the frame is not skipped
             skip_this_frame = frame_counter % (frames_to_skip + 1) != 0
             if not skip_this_frame:
-                frame_tracked = track_ball_movement(img, img_previous)
+                frame_tracked = track_ball_movement(img, img_previous) #track ball movement from previous frame to current frame
+                frame_tracked, paddle_x, paddle_y = track_paddle(frame_tracked) #track paddle's current location
+
+                
             else:
                 frame_tracked = img_previous
 
@@ -153,6 +156,72 @@ def track_ball_movement(curr_frame, prev_curr_frame):
             if new_x is not None:
                 cv2.circle(curr_frame, (int(new_x), int(new_y)), 5, (0, 0, 255), 2)
     return curr_frame
+
+# Tracking the current location of the paddle, but not the movement
+def track_paddle(curr_frame):
+    # Crop the frame to the right half so that the left paddle isn't tracked on accident
+    # Keep track of the width that was cropped to add it to the rectangle coordinates at the end
+    width_lost = canvas_width // 2
+    right_frame = curr_frame[:, width_lost:]
+
+    # Convert the frame to grayscale
+    gray = cv2.cvtColor(right_frame, cv2.COLOR_BGR2GRAY)
+
+    # Gaussian blur 5x5
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    # Threshold the image
+    _, thresh = cv2.threshold(blur, 240, 255, cv2.THRESH_BINARY)
+
+    # Find contours
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Filter out contours that are too small
+    min_contour_area = 50
+    max_contour_area = 250
+    min_aspect_ratio = 1.5 #Ratio of height to width such that the ball isn't detected as a paddle
+    # Can't be too harsh as the paddle can go half off-screen where the aspect ratio will be skewed
+
+    paddle_contour = None
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if min_contour_area < area < max_contour_area:
+            # Calculate aspect ratio of the contour
+            x, y, w, h = cv2.boundingRect(contour)
+            aspect_ratio = float(h) / w
+            if aspect_ratio > min_aspect_ratio:
+                paddle_contour = contour
+                break
+
+    # If no contours are found, return the current frame without a paddle tracked
+    if len(contours) == 0:
+        return curr_frame
+
+    # Print the contour area for debugging
+    print(cv2.contourArea(contours[0]))
+
+    # If paddle contour is found, track its position
+    if paddle_contour is not None:
+        # Get bounding rectangle of the paddle contour
+        x, y, w, h = cv2.boundingRect(paddle_contour)
+        x += width_lost # Need to add width back in since the frame was cropped
+
+        # Calculate paddle center
+        paddle_center_x = x + w // 2 
+        paddle_center_y = y + h // 2
+        padding = 2 #Extra padding around the paddle for display purposes
+
+        # Draw a rectangle around the paddle
+        cv2.rectangle(curr_frame, (x - padding, y - padding), (x + w + padding, y + h + padding), (255, 255, 0), 2)
+
+        # Display the paddle center (optional)
+        cv2.circle(curr_frame, (paddle_center_x, paddle_center_y), 5, (255, 0, 0), -1)
+
+        # Return paddle center coordinates
+        return curr_frame, paddle_center_x, paddle_center_y
+
+    return curr_frame, None, None
+
 
 # Function to predict the linear trajectory of the ball
 # If the ball's slope points it to the bottom or top of the screen, invert the slope and set new point to the border, call self recursively
