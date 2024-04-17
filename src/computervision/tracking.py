@@ -41,11 +41,14 @@ global k_key_down; k_key_down = False
 # Number of frames to skip before starting to track the ball again, 
 # frame rate of the display/tracker will be 1/(frames_to_skip+1)
 # I.e. 4 frames to skip will result in a frame rate of 1/5th of the actual frame rate
-# Lower frames_to_skip is more performance heavy. Being less than 5 may cause some innaccuracy in tracking as tracking fractional pixels leads to inaccurate readings
+# Lower frames_to_skip is more performance heavy. Being less than 5 may cause some innaccuracy in tracking as tracking fractional pixels leads to inaccurate readings if the ball is too slow
 # Higher frames_to_skip will result in a more accurate tracking but will be slower to react
 frames_to_skip = 0
 # Time in minutes before the program terminates itself to prevent accidental key presses while AFK
 max_program_time_minutes = 5
+# Minimum and maximum angles the paddle moves at, used to remove erroneous trajected slopes
+min_angle = 30
+max_angle = 60
 
 # Time the program was ran
 start_time = time.time()
@@ -83,6 +86,11 @@ def capture_game():
         
         # Main loop
         while True:
+            # Print all slopes from trajectories (debugging)
+            # for t in trajectories:
+            #     print(round(t[2],1),end=',')
+            # print('')
+
             # If 'p' is pressed, permit keybinds to be sent
             if keyboard.is_pressed('p'):
                 # If the key was pressed last at least 1 second ago, toggle the key presses
@@ -288,20 +296,39 @@ def track_ball_movement(curr_frame, prev_frame):
                 # Invert the slope of all previous trajectories
                 for i in range(len(trajectories)):
                     trajectories[i] = (trajectories[i][0], trajectories[i][1], -trajectories[i][2])
+
+            # If the slope is inverted of the previous slope, clear trajectories
+            # Extra check for bounces off the top and bottom walls
+            if len(trajectories) > 0 and (trajectories[-1][2] * slope < 0):
+                trajectories.clear()
                     
-            trajectories.append(trajectory)
+            # If the slope is within the min and max angle, add the trajectory to the list
+            angle_leniency = 10
+            # i.e with angle_leniency at 10 and min_angle at 30 and max at 60, the permitted angle range is 20 to 70 degrees
+            if abs(np.degrees(np.arctan(slope))) > min_angle and abs(np.degrees(np.arctan(slope))) < max_angle:
+                # Only add if its within 10 degrees of the average degree
+                if len(trajectories)> 0:
+                    avg_slope = sum([t[2] for t in trajectories]) / len(trajectories)
+                    avg_degree = abs(np.degrees(np.arctan(avg_slope)))
 
-            # Calculate the average trajectory
-            avg_slope = sum([t[2] for t in trajectories]) / len(trajectories)
-            # Redefine trajectory with the average slope
-            trajectory = (curr_circle[0][0][0], curr_circle[0][0][1], avg_slope)
+                    if avg_degree - angle_leniency < abs(np.degrees(np.arctan(slope))) < avg_degree + angle_leniency:
+                        trajectories.append(trajectory) 
+                else:
+                    trajectories.append(trajectory)
 
-            # Recursively call the function to predict the trajectory after it hits the right boundary
-            new_x, new_y, slope = predict_trajectory(trajectory[0], trajectory[1], trajectory[2])
+            # Use the avg_slope to predict the next point
+            if len(trajectories) > 0:
+                avg_slope = sum([t[2] for t in trajectories]) / len(trajectories)
 
-            # Draw the predicted point
-            if new_x is not None:
-                cv2.circle(curr_frame, (int(new_x), int(new_y)), 5, red, 2)
+                # Redefine trajectory with the average slope
+                trajectory = (curr_circle[0][0][0], curr_circle[0][0][1], avg_slope)
+
+                # Recursively call the function to predict the trajectory after it hits the right boundary
+                new_x, new_y, slope = predict_trajectory(trajectory[0], trajectory[1], trajectory[2])
+
+                # Draw the predicted point
+                if new_x is not None:
+                    cv2.circle(curr_frame, (int(new_x), int(new_y)), 5, red, 2)
 
     return new_x, new_y, curr_frame
 
