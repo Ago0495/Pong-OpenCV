@@ -184,7 +184,9 @@
 					this.Trigger = [];
 					this.ObjectCounter = 0;	
 					this.destroyList = [];
-					this.gameover = false
+					this.gameover = false;
+					this.scoreL = 0;
+					this.scoreR = 0;
 	
 					this.myWEBGL = new WebGL_Interface();
 
@@ -572,7 +574,7 @@
 								if(m.CheckCollision(tempP, this.collisionRadius, m.Trigger[to].loc, m.Trigger[to].collisionRadius))
 								{
 									this.OnTriggerEnter(m.Trigger[to]);
-									// m.Trigger[to].OnTriggerEnter(this);
+									m.Trigger[to].OnTriggerEnter(this);
 								}
 							}
 						}
@@ -873,7 +875,7 @@
 					this.scale = [0.5,0.5,0.5];
 					this.buffer=gl.createBuffer();
 
-					this.speed = 0.0150;
+					this.speed = 0.0025;
 
 					var randomDegrees = Math.random() * 30 - 60
 					var randomRadians = randomDegrees * Math.PI / 180;
@@ -1191,6 +1193,27 @@
 				OnStart()
 				{
 				}
+
+				OnTriggerEnter(other)
+				{
+					var scoreCounter = document.getElementById("scoreCounter");
+
+					// Change the text content of the label
+					if (other.loc[0] < this.loc[0])
+					{
+						m.scoreR++;
+						scoreCounter.innerHTML = m.scoreL + " - " + m.scoreR;
+					}
+					else if (other.loc[0] > this.loc[0])
+					{
+						m.scoreL++;
+						scoreCounter.innerHTML = m.scoreL + " - " + m.scoreR;
+					}
+					else
+					{
+						
+					}
+				}
 			}
 
 
@@ -1200,6 +1223,14 @@
 		<HEADER>
             <H1 style="text-align: center;">Pong</H1>
 		</HEADER>
+        <div style = "text-align: center;">
+            <form>
+                <label id="scoretxt">Score:</label>
+            </form> 
+            <form>
+                <label id="scoreCounter">0 - 0</label>
+            </form> 
+        </div>
 		
 		<CANVAS id="myCanvas" width="800" height="600" style = "display: block; top: auto; left: 0px; right: 0px; margin: auto; border: 1px solid #000000; margin-top: 20px;">
 			Your browser does not support canvas.
