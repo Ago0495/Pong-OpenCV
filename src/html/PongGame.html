@@ -685,7 +685,8 @@
 				{
 					super();
 					this.name = "PaddleLeft";
-					this.collisionRadius = 0.05			
+					this.collisionRadius = 0.05		
+					this.speed = 0.005;	
                     this.scale = [0.1,0.15,0.1]
 					this.buffer=gl.createBuffer();		
 				}
@@ -753,14 +754,14 @@
 					{
 						for(var i =0; i < 3; i ++)
 						{
-							this.velocity[i] += tempF[i]*.02; 
+							this.velocity[i] += tempF[i]* this.speed; 
 						}
 					}
 					if("S" in m.Keys && m.Keys["S"])
 					{
 						for(var i =0; i < 3; i ++)
 						{
-							this.velocity[i] -= tempF[i]*.02; 
+							this.velocity[i] -= tempF[i]* this.speed; 
 						}
 					}
 					this.Move();
@@ -778,7 +779,8 @@
 				{
 					super();
 					this.name = "PaddleRight";
-					this.collisionRadius = 0.05			
+					this.collisionRadius = 0.05	
+					this.speed = 0.005;		
                     this.scale = [0.1,0.15,0.1]
 					this.buffer=gl.createBuffer();		
 				}
@@ -846,14 +848,14 @@
 					{
 						for(var i =0; i < 3; i ++)
 						{
-							this.velocity[i] += tempF[i]*.02; 
+							this.velocity[i] += tempF[i]* this.speed; 
 						}
 					}
 					if("K" in m.Keys && m.Keys["K"])
 					{
 						for(var i =0; i < 3; i ++)
 						{
-							this.velocity[i] -= tempF[i]*.02; 
+							this.velocity[i] -= tempF[i]* this.speed; 
 						}
 					}
 					this.Move();
@@ -950,11 +952,14 @@
 				{
 					if (this.velocity[0] > 0 && this.loc[0] + this.collisionRadius < other.loc[0] - other.collisionRadius)
 					{
-						this.velocity[0] = -1*this.velocity[0];
+						this.velocity[0] = -1.0*this.velocity[0];
+						// this.velocity[1] = (this.loc[1] - other.loc[1])/100
+						console.log(this.velocity)
 					}
 					else if (this.velocity[0] < 0 && this.loc[0] - this.collisionRadius > other.loc[0] + other.collisionRadius)
 					{
-						this.velocity[0] = -1*this.velocity[0];
+						this.velocity[0] = -1.0*this.velocity[0];
+						// this.velocity[1] = (this.loc[1] - other.loc[1])/100
 					}
 					else if (this.velocity[1] > 0 && this.loc[1] + this.collisionRadius < other.loc[1] - other.collisionRadius)
 					{
@@ -1211,7 +1216,7 @@
 					}
 					else
 					{
-						
+
 					}
 				}
 			}
