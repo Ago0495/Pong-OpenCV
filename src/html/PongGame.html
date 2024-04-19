@@ -187,6 +187,7 @@
 					this.gameover = false;
 					this.scoreL = 0;
 					this.scoreR = 0;
+					this.rBounceCount = 0;
 	
 					this.myWEBGL = new WebGL_Interface();
 
@@ -861,9 +862,16 @@
 					this.Move();
 				}
 
-				OnTriggerEnter(other)
+				OnCollisionEnter(other)
 				{
-                    
+                    if (other.name == "Ball" && other.loc[0] + other.collisionRadius < this.loc[0] - this.collisionRadius)
+					{
+						m.rBounceCount++;
+						console.log(m.rBounceCount)
+
+						var bounceCounter = document.getElementById("bounceCounter");
+						bounceCounter.innerHTML = "AI Success Hits: " + m.rBounceCount;
+					}
 				}
 			}
 			
@@ -954,7 +962,6 @@
 					{
 						this.velocity[0] = -1.0*this.velocity[0];
 						// this.velocity[1] = (this.loc[1] - other.loc[1])/100
-						console.log(this.velocity)
 					}
 					else if (this.velocity[0] < 0 && this.loc[0] - this.collisionRadius > other.loc[0] + other.collisionRadius)
 					{
@@ -1207,12 +1214,12 @@
 					if (other.loc[0] < this.loc[0])
 					{
 						m.scoreR++;
-						scoreCounter.innerHTML = m.scoreL + " - " + m.scoreR;
+						scoreCounter.innerHTML = m.scoreR + " - " + m.scoreL;
 					}
 					else if (other.loc[0] > this.loc[0])
 					{
 						m.scoreL++;
-						scoreCounter.innerHTML = m.scoreL + " - " + m.scoreR;
+						scoreCounter.innerHTML = m.scoreR + " - " + m.scoreL;
 					}
 					else
 					{
@@ -1236,11 +1243,13 @@
                 <label id="scoreCounter">0 - 0</label>
             </form> 
         </div>
-		
+
+		<label id="bounceCounter" style = "text-align: right;">AI Success Hits: 0</label>
+
 		<CANVAS id="myCanvas" width="800" height="600" style = "display: block; top: auto; left: 0px; right: 0px; margin: auto; border: 1px solid #000000; margin-top: 20px;">
 			Your browser does not support canvas.
 		</CANVAS>
-
+		
 		
 		<SCRIPT>
 			var canvas = document.getElementById("myCanvas");
