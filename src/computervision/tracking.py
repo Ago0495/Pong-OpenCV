@@ -113,7 +113,6 @@ def capture_game():
                 pyautogui.keyUp('q')
                 exit()
                 
-
             # Capture the screen within the specified region
             screenshot = sct.grab(game_region)
 
@@ -297,7 +296,6 @@ def track_ball_movement(curr_frame, prev_frame):
                 for i in range(len(trajectories)):
                     trajectories[i] = (trajectories[i][0], trajectories[i][1], -trajectories[i][2])
 
-            # If the slope is inverted of the previous slope, clear trajectories
             # Extra check for bounces off the top and bottom walls
             if len(trajectories) > 0 and (trajectories[-1][2] * slope < 0):
                 trajectories.clear()
@@ -372,9 +370,6 @@ def track_paddle(curr_frame):
     if len(contours) == 0:
         return None, None, None, None
 
-    # Print the contour area for debugging
-    #print(cv2.contourArea(contours[0]))
-
     # If paddle contour is found, track its position
     if paddle_contour is not None:
         # Get bounding rectangle of the paddle contour
@@ -402,7 +397,6 @@ def predict_trajectory(x, y, slope):
         return new_x, new_y, slope
 
     # If F(width) is: 
-
     # Above the upper bound - Invert the slope, set new point to F_inverse(upper_bound) and call recursively
     elif new_y > upper_bound:
         new_y = upper_bound
