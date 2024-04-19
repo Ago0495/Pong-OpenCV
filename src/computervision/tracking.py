@@ -37,6 +37,7 @@ global aqua; aqua = (255, 255, 0)
 global i_key_down; i_key_down = False
 global k_key_down; k_key_down = False
 
+
 # Settings
 # Number of frames to skip before starting to track the ball again, 
 # frame rate of the display/tracker will be 1/(frames_to_skip+1)
@@ -45,7 +46,7 @@ global k_key_down; k_key_down = False
 # Higher frames_to_skip will result in a more accurate tracking but will be slower to react
 frames_to_skip = 0
 # Time in minutes before the program terminates itself to prevent accidental key presses while AFK
-max_program_time_minutes = 5
+max_program_time_minutes = 60
 # Minimum and maximum angles the paddle moves at, used to remove erroneous trajected slopes
 min_angle = 30
 max_angle = 60
@@ -113,7 +114,6 @@ def capture_game():
                 pyautogui.keyUp('q')
                 exit()
                 
-
             # Capture the screen within the specified region
             screenshot = sct.grab(game_region)
 
@@ -297,7 +297,6 @@ def track_ball_movement(curr_frame, prev_frame):
                 for i in range(len(trajectories)):
                     trajectories[i] = (trajectories[i][0], trajectories[i][1], -trajectories[i][2])
 
-            # If the slope is inverted of the previous slope, clear trajectories
             # Extra check for bounces off the top and bottom walls
             if len(trajectories) > 0 and (trajectories[-1][2] * slope < 0):
                 trajectories.clear()
@@ -372,9 +371,6 @@ def track_paddle(curr_frame):
     if len(contours) == 0:
         return None, None, None, None
 
-    # Print the contour area for debugging
-    #print(cv2.contourArea(contours[0]))
-
     # If paddle contour is found, track its position
     if paddle_contour is not None:
         # Get bounding rectangle of the paddle contour
@@ -402,7 +398,6 @@ def predict_trajectory(x, y, slope):
         return new_x, new_y, slope
 
     # If F(width) is: 
-
     # Above the upper bound - Invert the slope, set new point to F_inverse(upper_bound) and call recursively
     elif new_y > upper_bound:
         new_y = upper_bound
