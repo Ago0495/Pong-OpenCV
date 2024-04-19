@@ -37,6 +37,7 @@ global aqua; aqua = (255, 255, 0)
 global i_key_down; i_key_down = False
 global k_key_down; k_key_down = False
 
+
 # Settings
 # Number of frames to skip before starting to track the ball again, 
 # frame rate of the display/tracker will be 1/(frames_to_skip+1)
@@ -45,7 +46,7 @@ global k_key_down; k_key_down = False
 # Higher frames_to_skip will result in a more accurate tracking but will be slower to react
 frames_to_skip = 0
 # Time in minutes before the program terminates itself to prevent accidental key presses while AFK
-max_program_time_minutes = 5
+max_program_time_minutes = 60
 # Minimum and maximum angles the paddle moves at, used to remove erroneous trajected slopes
 min_angle = 30
 max_angle = 60
