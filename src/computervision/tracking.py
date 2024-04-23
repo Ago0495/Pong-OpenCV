@@ -43,6 +43,7 @@ global k_key_down; k_key_down = False
 # frame rate of the display/tracker will be 1/(frames_to_skip+1)
 # I.e. 4 frames to skip will result in a frame rate of 1/5th of the actual frame rate
 # Lower frames_to_skip is more performance heavy. Being less than 5 may cause some innaccuracy in tracking as tracking fractional pixels leads to inaccurate readings if the ball is too slow
+# if the ball is fast however, frames_to_skip may be lowered to 0
 # Higher frames_to_skip will result in a more accurate tracking but will be slower to react
 frames_to_skip = 0
 # Time in minutes before the program terminates itself to prevent accidental key presses while AFK
