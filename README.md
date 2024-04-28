@@ -13,6 +13,7 @@ Computer vision techniques will be used to track the ball's movement on the scre
 * Rerun tracking.py then switch focus to the PongGame.html in your browser
 * Press 'p' to allow the script to start moving the right paddle up and down with 'i' and 'k' keys
 * Press 'w' or 's' to move the left paddle up or down to try to beat the AI!
+* Press 'p' to disallow keybinds or 'q' to quit the game
 
 ## Objectives
 * Interpret the screen from the game environment and send it to the algorithm
